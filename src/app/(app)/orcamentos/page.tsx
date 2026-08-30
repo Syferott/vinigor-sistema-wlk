@@ -46,9 +46,6 @@ export default async function PaginaOrcamentos({
   await requerAuth();
   const supabase = await createClient();
 
-  // RF-13: quem passou da validade vira "expirado" sozinho.
-  await supabase.rpc("expirar_orcamentos");
-
   const filtro =
     typeof status === "string" && status in STATUS_ORCAMENTO ? status : "";
 

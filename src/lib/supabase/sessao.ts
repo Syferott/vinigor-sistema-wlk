@@ -27,23 +27,28 @@ export async function atualizarSessao(request: NextRequest) {
     },
   );
 
-  // Não colocar lógica entre createServerClient e getUser: a sessão pode
-  // expirar no meio do request e o usuário cair para o login sem motivo.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Não colocar lógica entre createServerClient e esta chamada: a sessão
+  // pode expirar no meio do request e o usuário cair para o login sem
+  // motivo.
+  //
+  // getClaims() em vez de getUser(): o projeto assina em ES256, então a
+  // assinatura é verificada localmente contra o JWKS em cache — sem ida à
+  // rede em todo request. Ele ainda passa por getSession() por dentro, que
+  // é quem renova o token vencido, então o refresh continua acontecendo.
+  const { data: claims } = await supabase.auth.getClaims();
+  const autenticado = Boolean(claims?.claims?.sub);
 
   const caminho = request.nextUrl.pathname;
   const ehPublica = PUBLICAS.some((p) => caminho.startsWith(p));
 
-  if (!user && !ehPublica) {
+  if (!autenticado && !ehPublica) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", caminho);
     return NextResponse.redirect(url);
   }
 
-  if (user && caminho === "/login") {
+  if (autenticado && caminho === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/quadro";
     url.search = "";

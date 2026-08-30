@@ -5,15 +5,21 @@ import type { Profile } from "@/lib/types";
 
 export const perfilAtual = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+
+  // Assinatura conferida localmente (ES256 + JWKS em cache), sem ida ao
+  // servidor de Auth. Vale notar o que isso NÃO afrouxa: desativar alguém
+  // em /usuarios continua tendo efeito imediato, porque `ativo` é lido do
+  // banco logo abaixo, a cada request. O que um token revogado ganha é só
+  // sobreviver até expirar — e a RLS ainda o barra, já que is_staff()
+  // também consulta profiles.
+  const { data: claims } = await supabase.auth.getClaims();
+  const id = claims?.claims?.sub;
+  if (!id) return null;
 
   const { data } = await supabase
     .from("profiles")
     .select("id, nome, email, role, ativo, created_at")
-    .eq("id", user.id)
+    .eq("id", id)
     .maybeSingle();
 
   return (data as Profile | null) ?? null;
