@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo, LogoMarca } from "@/components/logo";
+import { LogoVinigor, NomeVinigor } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { sair } from "@/app/login/actions";
 import type { Profile } from "@/lib/types";
@@ -48,8 +48,8 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
       {/* Topo mobile */}
       <header className="flex items-center justify-between border-b bg-[#4a4a4a] px-4 py-3 md:hidden">
         <Link href="/quadro" className="flex items-center gap-2">
-          <LogoMarca className="size-8 text-sm" />
-          <Logo tema="escuro" className="text-lg" />
+          <LogoVinigor tamanho={32} />
+          <NomeVinigor tema="escuro" className="text-lg" />
         </Link>
         <Button
           variant="ghost"
@@ -69,8 +69,8 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
         )}
       >
         <div className="hidden items-center gap-2 px-5 py-5 md:flex">
-          <LogoMarca />
-          <Logo tema="escuro" className="text-xl" />
+          <LogoVinigor tamanho={40} />
+          <NomeVinigor tema="escuro" className="text-xl" />
         </div>
 
         <ul className="flex flex-1 flex-col gap-1 p-3">

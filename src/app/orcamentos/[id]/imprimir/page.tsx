@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
-import { Logo } from "@/components/logo";
 import { brl, dataBR, documentoBR, qtd, telefoneBR } from "@/lib/format";
 import type { Cliente, ItemOrcamento, Orcamento } from "@/lib/types";
 
@@ -42,10 +41,16 @@ export default async function ImprimirOrcamento({
 
       <header className="flex items-start justify-between border-b-4 border-[#8cc63e] pb-4">
         <div>
-          <Logo className="text-3xl" />
-          <p className="mt-1 text-sm text-[#6b7066]">
-            Comunicação visual e gráfica rápida
-          </p>
+          {/* <img> puro de propósito: este HTML é o que vai para o
+              gerador de PDF na fase 2, sem depender do otimizador do Next. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-vinigor.jpeg"
+            alt="VINIGOR Gráfica"
+            width={104}
+            height={104}
+            className="rounded-lg"
+          />
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-[#6b7066]">

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Logo } from "@/components/logo";
+import { LogoVinigor } from "@/components/logo";
 import { FormularioNovaSenha } from "./formulario";
 
 export const metadata = { title: "Definir nova senha" };
@@ -24,7 +24,7 @@ export default async function PaginaNovaSenha({
     <main className="flex min-h-svh items-center justify-center bg-[#f6f8f3] p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <Logo className="text-3xl" />
+          <LogoVinigor tamanho={96} className="mx-auto rounded-xl shadow-sm" />
           <p className="mt-2 text-sm text-muted-foreground">
             {user ? "Defina sua nova senha" : "Link inválido ou expirado"}
           </p>
