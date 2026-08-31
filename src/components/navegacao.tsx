@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Columns3,
+  ShoppingCart,
   FileText,
   Users,
   Package,
@@ -32,6 +33,7 @@ type Item = {
 
 const ITENS: Item[] = [
   { href: "/quadro", rotulo: "Quadro", icone: Columns3 },
+  { href: "/balcao", rotulo: "Venda balcão", icone: ShoppingCart },
   { href: "/orcamentos", rotulo: "Orçamentos", icone: FileText },
   { href: "/clientes", rotulo: "Clientes", icone: Users },
   { href: "/servicos", rotulo: "Serviços", icone: Package },
