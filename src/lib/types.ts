@@ -205,3 +205,37 @@ export interface CardPedido extends Pedido {
   saldo_devedor: number;
   situacao: SituacaoFinanceira;
 }
+
+export type CategoriaConta =
+  | "fornecedor" | "energia" | "agua" | "aluguel" | "internet"
+  | "telefone" | "imposto" | "salario" | "manutencao" | "material" | "outro";
+
+export const CATEGORIAS_CONTA: Record<CategoriaConta, string> = {
+  fornecedor: "Fornecedor",
+  energia: "Energia",
+  agua: "Água",
+  aluguel: "Aluguel",
+  internet: "Internet",
+  telefone: "Telefone",
+  imposto: "Imposto",
+  salario: "Salário",
+  manutencao: "Manutenção",
+  material: "Material",
+  outro: "Outro",
+};
+
+export interface ContaPagar {
+  id: string;
+  descricao: string;
+  credor: string | null;
+  categoria: CategoriaConta;
+  valor: number;
+  vencimento: string;
+  pago_em: string | null;
+  valor_pago: number | null;
+  forma: FormaPagamento | null;
+  observacao: string | null;
+  recorrente: boolean;
+  created_at: string;
+  deleted_at: string | null;
+}
