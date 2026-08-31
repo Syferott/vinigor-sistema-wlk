@@ -85,6 +85,7 @@ export interface Cliente {
   email: string | null;
   endereco: string | null;
   observacoes: string | null;
+  condicoes_padrao: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -134,6 +135,7 @@ export interface Orcamento {
   desconto_valor: number;
   total: number;
   observacoes: string | null;
+  aos_cuidados: string | null;
   versao: number;
   orcamento_pai_id: string | null;
   recusado_motivo: string | null;

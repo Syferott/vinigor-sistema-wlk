@@ -12,19 +12,24 @@ export type ClienteOpcao = {
   nome: string;
   telefone: string | null;
   documento: string | null;
+  condicoes_padrao?: string | null;
 };
 
 export function SeletorCliente({
   clientes,
   nome = "cliente_id",
-  inicial,
+  selecionado,
+  aoSelecionar,
+  acao,
 }: {
   clientes: ClienteOpcao[];
   nome?: string;
-  inicial?: string;
+  selecionado?: string;
+  aoSelecionar: (cliente: ClienteOpcao) => void;
+  /** Botão de cadastro rápido, renderizado ao lado do rótulo. */
+  acao?: React.ReactNode;
 }) {
   const [busca, setBusca] = useState("");
-  const [selecionado, setSelecionado] = useState<string | undefined>(inicial);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -46,7 +51,11 @@ export function SeletorCliente({
   return (
     <div className="grid gap-2">
       <input type="hidden" name={nome} value={selecionado ?? ""} />
-      <Label htmlFor="busca-cliente">Cliente *</Label>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label htmlFor="busca-cliente">Cliente *</Label>
+        {acao}
+      </div>
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -65,7 +74,7 @@ export function SeletorCliente({
       <div className="max-h-56 overflow-y-auto rounded-lg border bg-card">
         {filtrados.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
-            Nenhum cliente encontrado.
+            Nenhum cliente encontrado. Use “Cadastrar cliente” acima.
           </p>
         ) : (
           <ul className="divide-y">
@@ -73,7 +82,7 @@ export function SeletorCliente({
               <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => setSelecionado(c.id)}
+                  onClick={() => aoSelecionar(c)}
                   className={cn(
                     "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent",
                     selecionado === c.id && "bg-accent",

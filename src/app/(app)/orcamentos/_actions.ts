@@ -34,6 +34,14 @@ export async function criarOrcamento(
 
   if (error) return { erro: error.message };
 
+  const aosCuidados = texto(formData.get("aos_cuidados"));
+  if (aosCuidados) {
+    await supabase
+      .from("orcamentos")
+      .update({ aos_cuidados: aosCuidados })
+      .eq("id", data);
+  }
+
   void perfil;
   revalidatePath("/orcamentos");
   redirect(`/orcamentos/${data}`);
@@ -129,6 +137,7 @@ export async function atualizarCabecalho(formData: FormData) {
     .update({
       validade: texto(formData.get("validade")),
       prazo_producao_dias: Number(formData.get("prazo_producao_dias")) || null,
+      aos_cuidados: texto(formData.get("aos_cuidados")),
       desconto_tipo: texto(formData.get("desconto_tipo")) ?? "valor",
       desconto_valor: parseValor(formData.get("desconto_valor")),
       observacoes: texto(formData.get("observacoes")),

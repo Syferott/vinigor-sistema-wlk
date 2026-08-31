@@ -187,6 +187,17 @@ export default async function PaginaOrcamento({
                   </div>
 
                   <div className="grid gap-2">
+                    <Label htmlFor="aos_cuidados">A/C — aos cuidados de</Label>
+                    <Input
+                      id="aos_cuidados"
+                      name="aos_cuidados"
+                      defaultValue={o.aos_cuidados ?? ""}
+                      placeholder="Ex.: Luciana"
+                      disabled={aprovado}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
                     <Label htmlFor="prazo_producao_dias">
                       Prazo de produção (dias)
                     </Label>

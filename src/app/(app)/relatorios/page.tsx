@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/table";
 import { brl, MESES, MESES_LONGOS, variacao } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { BotaoLink } from "@/components/botao-link";
+import { Download, TrendingDown, TrendingUp } from "lucide-react";
 
 export const metadata = { title: "Relatórios" };
 
@@ -248,6 +249,45 @@ export default async function PaginaRelatorios({
                 </TableBody>
               </Table>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Backup dos dados</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-sm text-muted-foreground">
+              Cópia dos dados operacionais para guardar fora do sistema. O
+              Supabase já faz backup do banco; isto é a sua cópia, legível e
+              independente dele.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <BotaoLink href="/api/backup?formato=json" variant="outline">
+                <Download /> Backup completo (JSON)
+              </BotaoLink>
+              <BotaoLink
+                href="/api/backup?formato=csv&tabela=pedidos"
+                variant="outline"
+              >
+                <Download /> Pedidos (CSV)
+              </BotaoLink>
+              <BotaoLink
+                href="/api/backup?formato=csv&tabela=clientes"
+                variant="outline"
+              >
+                <Download /> Clientes (CSV)
+              </BotaoLink>
+              <BotaoLink
+                href="/api/backup?formato=csv&tabela=pagamentos"
+                variant="outline"
+              >
+                <Download /> Pagamentos (CSV)
+              </BotaoLink>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Não inclui os arquivos de arte no Storage nem as contas de login.
+            </p>
           </CardContent>
         </Card>
       </Conteudo>

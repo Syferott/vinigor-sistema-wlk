@@ -31,6 +31,7 @@ export async function salvarCliente(
     email: texto(formData.get("email")),
     endereco: texto(formData.get("endereco")),
     observacoes: texto(formData.get("observacoes")),
+    condicoes_padrao: texto(formData.get("condicoes_padrao")),
   };
 
   const valores = Object.fromEntries(
@@ -100,4 +101,45 @@ export async function excluirCliente(formData: FormData) {
 
   revalidatePath("/clientes");
   redirect("/clientes");
+}
+
+export type EstadoClienteRapido = {
+  erro?: string;
+  cliente?: Pick<
+    Cliente,
+    "id" | "nome" | "telefone" | "documento" | "condicoes_padrao"
+  >;
+};
+
+/**
+ * Cadastro enxuto, feito de dentro do orçamento — evita sair da tela,
+ * cadastrar em Clientes e voltar. Só o essencial do balcão; o resto da
+ * ficha se completa depois.
+ */
+export async function criarClienteRapido(
+  _estado: EstadoClienteRapido,
+  formData: FormData,
+): Promise<EstadoClienteRapido> {
+  const perfil = await requerAuth();
+  const supabase = await createClient();
+
+  const nome = texto(formData.get("nome"));
+  if (!nome) return { erro: "Informe o nome do cliente." };
+
+  const { data, error } = await supabase
+    .from("clientes")
+    .insert({
+      nome,
+      tipo: (texto(formData.get("tipo")) ?? "PF") as "PF" | "PJ",
+      telefone: texto(formData.get("telefone")),
+      documento: texto(formData.get("documento")),
+      created_by: perfil.id,
+    })
+    .select("id, nome, telefone, documento, condicoes_padrao")
+    .single();
+
+  if (error) return { erro: error.message };
+
+  revalidatePath("/clientes");
+  return { cliente: data as EstadoClienteRapido["cliente"] };
 }

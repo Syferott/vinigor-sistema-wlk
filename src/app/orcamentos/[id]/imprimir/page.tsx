@@ -69,6 +69,9 @@ export default async function ImprimirOrcamento({
             Cliente
           </p>
           <p className="font-semibold">{o.clientes.nome}</p>
+          {o.aos_cuidados && (
+            <p className="font-medium">A/C {o.aos_cuidados}</p>
+          )}
           {o.clientes.documento && <p>{documentoBR(o.clientes.documento)}</p>}
           {o.clientes.telefone && <p>{telefoneBR(o.clientes.telefone)}</p>}
           {o.clientes.email && <p>{o.clientes.email}</p>}
@@ -154,7 +157,7 @@ export default async function ImprimirOrcamento({
       {o.observacoes && (
         <section className="mt-8 text-sm">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6b7066]">
-            Observações
+            Condições e observações
           </p>
           <p className="whitespace-pre-wrap">{o.observacoes}</p>
         </section>

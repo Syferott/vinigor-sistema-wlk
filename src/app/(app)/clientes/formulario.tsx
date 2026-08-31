@@ -133,6 +133,23 @@ export function FormularioCliente({ cliente }: { cliente?: Cliente }) {
               defaultValue={v("observacoes")}
             />
           </div>
+
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="condicoes_padrao">
+              Condições de pagamento padrão
+            </Label>
+            <Textarea
+              id="condicoes_padrao"
+              name="condicoes_padrao"
+              rows={5}
+              defaultValue={v("condicoes_padrao")}
+              placeholder={`Prazo de produção: a combinar\nCond. Pagamento: 15 dias corridos, depósito/transferência\nBANCO INTER - 077 / Agência: 0001 / Conta: 00000000-0\nCHAVE PIX CNPJ: 00.000.000/0001-00`}
+            />
+            <p className="text-xs text-muted-foreground">
+              Entra sozinho nas observações de todo orçamento deste cliente, e
+              ainda pode ser ajustado caso a caso.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
