@@ -103,7 +103,7 @@ export default async function PaginaPedido({
       .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
-      .select("id, nome, email, role, ativo, created_at")
+      .select("id, nome, email, role, ativo, senha_provisoria, created_at")
       .eq("ativo", true)
       .order("nome"),
     supabase

@@ -29,7 +29,7 @@ export default async function PaginaUsuarios({
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, nome, email, role, ativo, created_at")
+    .select("id, nome, email, role, ativo, senha_provisoria, created_at")
     .order("ativo", { ascending: false })
     .order("role")
     .order("nome");

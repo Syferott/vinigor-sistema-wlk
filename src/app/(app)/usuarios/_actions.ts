@@ -59,7 +59,7 @@ export async function criarUsuario(
   // service_role. O papel pedido pelo próprio usuário nunca vale nada.
   const { error: erroPerfil } = await admin
     .from("profiles")
-    .update({ nome, role, ativo: true })
+    .update({ nome, role, ativo: true, senha_provisoria: true })
     .eq("id", data.user.id);
 
   if (erroPerfil) return { erro: erroPerfil.message };

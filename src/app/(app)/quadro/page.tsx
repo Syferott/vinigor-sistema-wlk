@@ -63,7 +63,7 @@ export default async function PaginaQuadro({
         .select("pedido_id, total_pago, saldo_devedor, situacao"),
       supabase
         .from("profiles")
-        .select("id, nome, email, role, ativo, created_at")
+        .select("id, nome, email, role, ativo, senha_provisoria, created_at")
         .eq("ativo", true)
         .order("nome"),
     ]);

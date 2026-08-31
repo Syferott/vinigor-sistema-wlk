@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   X,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoVinigor, NomeVinigor } from "@/components/logo";
@@ -111,6 +112,15 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
             </p>
             <p className="text-xs capitalize text-[#b9c3ac]">{perfil.role}</p>
           </div>
+          <Link
+            href="/trocar-senha"
+            onClick={() => setAberto(false)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#d6dad1] transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <KeyRound className="size-4 shrink-0" />
+            Alterar minha senha
+          </Link>
+
           <form action={sair}>
             <Button
               type="submit"

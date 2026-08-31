@@ -18,7 +18,7 @@ export const perfilAtual = cache(async (): Promise<Profile | null> => {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, nome, email, role, ativo, created_at")
+    .select("id, nome, email, role, ativo, senha_provisoria, created_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -29,6 +29,12 @@ export async function requerAuth(): Promise<Profile> {
   const perfil = await perfilAtual();
   if (!perfil) redirect("/login");
   if (!perfil.ativo) redirect("/login?erro=inativo");
+
+  // Senha provisória é a que o dono escolheu e conhece. Enquanto ela
+  // valer, "quem recebeu o pagamento" não identifica ninguém de verdade.
+  // A página de troca usa perfilAtual() direto, para não cair em laço.
+  if (perfil.senha_provisoria) redirect("/trocar-senha");
+
   return perfil;
 }
 

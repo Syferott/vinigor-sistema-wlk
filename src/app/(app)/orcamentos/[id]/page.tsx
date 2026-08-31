@@ -58,7 +58,7 @@ export default async function PaginaOrcamento({
         .order("nome"),
       supabase
         .from("profiles")
-        .select("id, nome, email, role, ativo, created_at")
+        .select("id, nome, email, role, ativo, senha_provisoria, created_at")
         .eq("ativo", true)
         .order("nome"),
       supabase

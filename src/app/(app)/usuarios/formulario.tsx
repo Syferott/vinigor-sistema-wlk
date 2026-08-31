@@ -69,7 +69,8 @@ export function DialogNovoUsuario() {
               placeholder="mínimo 8 caracteres"
             />
             <p className="text-xs text-muted-foreground">
-              Passe para a pessoa; ela troca depois em “Esqueci minha senha”.
+              Passe para a pessoa. No primeiro acesso o sistema vai exigir que
+              ela crie a própria senha — você não fica sabendo qual é.
             </p>
           </div>
 

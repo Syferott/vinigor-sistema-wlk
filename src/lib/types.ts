@@ -72,6 +72,7 @@ export interface Profile {
   email: string | null;
   role: Papel;
   ativo: boolean;
+  senha_provisoria: boolean;
   created_at: string;
 }
 
