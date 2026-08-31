@@ -35,7 +35,7 @@ type PedidoBruto = {
 export default async function PaginaQuadro({
   searchParams,
 }: PageProps<"/quadro">) {
-  const { erro } = await searchParams;
+  const { erro, excluido } = await searchParams;
   const perfil = await requerAuth();
   const supabase = await createClient();
 
@@ -102,6 +102,7 @@ export default async function PaginaQuadro({
       equipe={(equipe ?? []) as Profile[]}
       podeVerTotais={perfil.role === "dono"}
       erroInicial={typeof erro === "string" ? erro : undefined}
+      pedidoExcluido={excluido === "1"}
     />
   );
 }

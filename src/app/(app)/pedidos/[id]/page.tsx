@@ -5,6 +5,7 @@ import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { BadgeFinanceiro } from "@/components/badges";
 import { DialogPagamento } from "./pagamentos";
 import { SeletorEtapa } from "./etapa";
+import { DialogExcluirPedido } from "./excluir";
 import { atualizarPedido, estornarPagamento, repetirPedido } from "../_actions";
 import { Button } from "@/components/ui/button";
 import { BotaoLink } from "@/components/botao-link";
@@ -460,6 +461,15 @@ export default async function PaginaPedido({
                 <Copy /> Repetir este trabalho
               </Button>
             </form>
+
+            {perfil.role === "dono" && (
+              <DialogExcluirPedido
+                pedidoId={p.id}
+                numero={p.numero}
+                clienteNome={p.clientes?.nome ?? "—"}
+                totalPago={Number(fin.total_pago)}
+              />
+            )}
           </div>
         </div>
       </Conteudo>

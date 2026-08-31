@@ -91,3 +91,40 @@ export async function repetirPedido(formData: FormData) {
   revalidatePath("/orcamentos");
   redirect(`/orcamentos/${data}`);
 }
+
+export type ResultadoExclusao = { erro?: string };
+
+/**
+ * RF-44 — exclusão lógica. O card sai do quadro, das fichas e dos
+ * relatórios (todas as views filtram deleted_at), mas a linha continua
+ * no banco com quem excluiu, quando e por quê.
+ *
+ * A trava de quem pode excluir mora no trigger fn_valida_exclusao_pedido
+ * (SQLSTATE VG003/VG004) — aqui só traduzimos o erro.
+ */
+export async function excluirPedido(
+  _estado: ResultadoExclusao,
+  formData: FormData,
+): Promise<ResultadoExclusao> {
+  await requerAuth();
+  const supabase = await createClient();
+
+  const id = String(formData.get("id"));
+  const motivo = texto(formData.get("motivo"));
+
+  if (!motivo || motivo.length < 3) {
+    return { erro: "Escreva o motivo da exclusão." };
+  }
+
+  const { error } = await supabase
+    .from("pedidos")
+    .update({ deleted_at: new Date().toISOString(), exclusao_motivo: motivo })
+    .eq("id", id);
+
+  if (error) return { erro: error.message };
+
+  revalidatePath("/quadro");
+  revalidatePath("/financeiro");
+  revalidatePath("/relatorios");
+  redirect("/quadro?excluido=1");
+}

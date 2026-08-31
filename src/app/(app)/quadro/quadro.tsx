@@ -40,12 +40,14 @@ export function Quadro({
   equipe,
   podeVerTotais,
   erroInicial,
+  pedidoExcluido,
 }: {
   colunas: Coluna[];
   cardsIniciais: CardPedido[];
   equipe: Profile[];
   podeVerTotais: boolean;
   erroInicial?: string;
+  pedidoExcluido?: boolean;
 }) {
   const router = useRouter();
   const [cards, definirCards] = useState<CardPedido[]>(cardsIniciais);
@@ -71,6 +73,12 @@ export function Quadro({
   useEffect(() => {
     if (erroInicial) toast.error(decodeURIComponent(erroInicial));
   }, [erroInicial]);
+
+  useEffect(() => {
+    if (pedidoExcluido) {
+      toast.success("Pedido excluído. O registro continua guardado na auditoria.");
+    }
+  }, [pedidoExcluido]);
 
   // RNF-02: dois usuários movendo cards veem a mudança na hora.
   useEffect(() => {
