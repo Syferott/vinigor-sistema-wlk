@@ -68,6 +68,12 @@ export default async function ReciboPedido({
 
   const saldo = Number(f.saldo_devedor);
 
+  // O pedido herda o desconto dado no orçamento, então a soma dos itens
+  // pode ser maior que o total. Sem mostrar a diferença, o recibo parece
+  // erro de conta para quem recebe.
+  const somaItens = lista.reduce((s, i) => s + Number(i.total), 0);
+  const desconto = Math.round((somaItens - Number(f.valor_total)) * 100) / 100;
+
   return (
     <div className="mx-auto max-w-[360px] bg-white p-5 text-[13px] leading-snug text-[#2a2d27] print:p-0">
       <style>{`@page { size: auto; margin: 10mm; } @media print { .nao-imprimir { display: none !important; } }`}</style>
@@ -120,6 +126,18 @@ export default async function ReciboPedido({
       </table>
 
       <section className="border-t-2 border-[#8cc63e] pt-2">
+        {desconto > 0 && (
+          <>
+            <div className="flex justify-between text-xs text-[#6b7066]">
+              <span>Subtotal</span>
+              <span className="tabular">{brl(somaItens)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-[#6b7066]">
+              <span>Desconto</span>
+              <span className="tabular">− {brl(desconto)}</span>
+            </div>
+          </>
+        )}
         <div className="flex items-baseline justify-between">
           <span className="font-semibold">Total</span>
           <span className="text-lg font-bold tabular">{brl(f.valor_total)}</span>
