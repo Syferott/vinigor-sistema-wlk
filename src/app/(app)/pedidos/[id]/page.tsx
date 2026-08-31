@@ -28,6 +28,7 @@ import {
   Copy,
   ExternalLink,
   Undo2,
+  Printer,
 } from "lucide-react";
 import { brl, dataBR, dataHoraBR, qtd } from "@/lib/format";
 import {
@@ -451,6 +452,15 @@ export default async function PaginaPedido({
                 Orçamento de origem <ExternalLink />
               </BotaoLink>
             )}
+            <BotaoLink
+              variant="ghost"
+              className="justify-start"
+              href={`/pedidos/${p.id}/recibo`}
+              novaAba
+            >
+              <Printer /> Recibo para o cliente
+            </BotaoLink>
+
             <form action={repetirPedido}>
               <input type="hidden" name="pedido_id" value={p.id} />
               <Button
