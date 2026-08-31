@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { urlSite } from "@/lib/env";
 
 export type EstadoLogin = { erro?: string; ok?: string };
 
@@ -43,11 +44,9 @@ export async function recuperarSenha(
   if (!email) return { erro: "Informe o e-mail." };
 
   const supabase = await createClient();
-  const origem =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origem}/nova-senha`,
+    redirectTo: `${urlSite()}/nova-senha`,
   });
 
   if (error) return { erro: error.message };
