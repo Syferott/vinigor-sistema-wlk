@@ -23,10 +23,11 @@ import {
 } from "@dnd-kit/sortable";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { moverPedido } from "./_actions";
+import { moverPedido, receberEConcluir } from "./_actions";
 import { CardQuadro } from "./card";
 import { FiltrosQuadro, type Filtros, filtroVazio, aplicarFiltros } from "./filtros";
 import { DialogEntregaComSaldo } from "./dialog-entrega";
+import { DialogConclusaoComSaldo } from "./dialog-conclusao";
 import { CabecalhoPagina } from "@/components/pagina";
 import { BotaoLink } from "@/components/botao-link";
 import { brl } from "@/lib/format";
@@ -59,6 +60,12 @@ export function Quadro({
     card: CardPedido;
     colunaId: string;
     posicao: number;
+  } | null>(null);
+  const [conclusaoPendente, setConclusaoPendente] = useState<{
+    card: CardPedido;
+    colunaId: string;
+    posicao: number;
+    saldo: number;
   } | null>(null);
 
   const ignorarRealtimeAte = useRef(0);
@@ -204,7 +211,15 @@ export function Quadro({
 
     const card = cards.find((c) => c.id === pedidoId);
 
-    if (resultado.exigeJustificativa && card) {
+    if (resultado.exigePagamento && card) {
+      // Concluir devendo não tem exceção: o diálogo recebe o que falta.
+      setConclusaoPendente({
+        card,
+        colunaId,
+        posicao,
+        saldo: resultado.saldo ?? Number(card.saldo_devedor),
+      });
+    } else if (resultado.exigeJustificativa && card) {
       // RF-29: a exceção existe, mas fica registrada com justificativa.
       setEntregaPendente({ card, colunaId, posicao });
     } else {
@@ -276,6 +291,41 @@ export function Quadro({
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <DialogConclusaoComSaldo
+        pendente={conclusaoPendente}
+        aoFechar={() => setConclusaoPendente(null)}
+        aoConfirmar={async (valor, forma) => {
+          if (!conclusaoPendente) return;
+          const { card, colunaId, posicao } = conclusaoPendente;
+          ignorarRealtimeAte.current = Date.now() + 1500;
+
+          const r = await receberEConcluir({
+            pedidoId: card.id,
+            colunaId,
+            posicao,
+            valor,
+            forma,
+          });
+
+          setConclusaoPendente(null);
+
+          if (r.ok) {
+            toast.success(`${brl(valor)} recebido. Venda concluída.`);
+          } else if (r.exigePagamento) {
+            // Pagou parte: o dinheiro entrou, a venda continua em aberto.
+            toast.info(
+              `${brl(valor)} registrado. Ainda faltam ${brl(
+                r.saldo ?? 0,
+              )} para concluir.`,
+            );
+          } else {
+            toast.error(r.erro);
+          }
+
+          router.refresh();
+        }}
+      />
 
       <DialogEntregaComSaldo
         pendente={entregaPendente}

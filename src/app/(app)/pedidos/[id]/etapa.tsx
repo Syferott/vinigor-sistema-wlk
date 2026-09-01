@@ -3,15 +3,20 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { moverPedidoParaColuna } from "@/app/(app)/quadro/_actions";
+import {
+  moverPedidoParaColuna,
+  receberEConcluir,
+} from "@/app/(app)/quadro/_actions";
 import {
   DialogEntregaComSaldo,
   type PedidoEmAberto,
 } from "@/app/(app)/quadro/dialog-entrega";
+import { DialogConclusaoComSaldo } from "@/app/(app)/quadro/dialog-conclusao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { brl } from "@/lib/format";
 import type { Coluna } from "@/lib/types";
 
 /**
@@ -34,6 +39,11 @@ export function SeletorEtapa({
   const [destino, setDestino] = useState(colunaAtualId);
   const [pendente, setPendente] = useState<{ card: PedidoEmAberto } | null>(null);
   const [colunaPendente, setColunaPendente] = useState<string | null>(null);
+  const [conclusao, setConclusao] = useState<{
+    card: PedidoEmAberto;
+    colunaId: string;
+    saldo: number;
+  } | null>(null);
 
   const ordenadas = [...colunas].sort((a, b) => a.ordem - b.ordem);
   const atual = ordenadas.find((c) => c.id === colunaAtualId);
@@ -64,7 +74,14 @@ export function SeletorEtapa({
         return;
       }
 
-      if (r.exigeJustificativa) {
+      if (r.exigePagamento) {
+        setConclusao({
+          card: pedido,
+          colunaId,
+          saldo: r.saldo ?? Number(pedido.saldo_devedor),
+        });
+        setDestino(colunaAtualId);
+      } else if (r.exigeJustificativa) {
         setColunaPendente(colunaId);
         setPendente({ card: pedido });
       } else {
@@ -158,6 +175,39 @@ export function SeletorEtapa({
         }}
         aoConfirmar={(justificativa) => {
           if (colunaPendente) mover(colunaPendente, justificativa);
+        }}
+      />
+
+      <DialogConclusaoComSaldo
+        pendente={conclusao}
+        aoFechar={() => setConclusao(null)}
+        aoConfirmar={async (valor, forma) => {
+          if (!conclusao) return;
+          const { colunaId } = conclusao;
+          setConclusao(null);
+
+          iniciar(async () => {
+            const r = await receberEConcluir({
+              pedidoId: pedido.id,
+              colunaId,
+              valor,
+              forma,
+            });
+
+            if (r.ok) {
+              toast.success(`${brl(valor)} recebido. Venda concluída.`);
+            } else if (r.exigePagamento) {
+              toast.info(
+                `${brl(valor)} registrado. Ainda faltam ${brl(
+                  r.saldo ?? 0,
+                )} para concluir.`,
+              );
+            } else {
+              toast.error(r.erro);
+            }
+
+            router.refresh();
+          });
         }}
       />
     </>

@@ -6,7 +6,16 @@ import { requerAuth } from "@/lib/auth";
 
 export type ResultadoMover =
   | { ok: true }
-  | { ok: false; erro: string; exigeJustificativa?: boolean };
+  | {
+      ok: false;
+      erro: string;
+      /** RF-29: entrega com saldo — cabe exceção, com justificativa. */
+      exigeJustificativa?: boolean;
+      /** Conclusão com saldo: aqui não há exceção, só receber. */
+      exigePagamento?: boolean;
+      /** Quanto falta, lido na hora do erro. */
+      saldo?: number;
+    };
 
 /**
  * RF-18 + RF-29. A trava de entrega com saldo mora no banco (trigger
@@ -40,6 +49,24 @@ export async function moverPedido(input: {
   });
 
   if (error) {
+    // VG008 vem da conclusão com saldo em aberto. Diferente da entrega,
+    // não tem válvula de exceção: o caminho é receber o que falta, então
+    // devolvemos o valor para a tela já abrir o recebimento preenchido.
+    if (error.code === "VG008") {
+      const { data: fin } = await supabase
+        .from("vw_pedido_financeiro")
+        .select("saldo_devedor")
+        .eq("pedido_id", input.pedidoId)
+        .maybeSingle();
+
+      return {
+        ok: false,
+        erro: error.message,
+        exigePagamento: true,
+        saldo: Number(fin?.saldo_devedor ?? 0),
+      };
+    }
+
     const exige = error.code === "VG001" || error.code === "VG002";
     return { ok: false, erro: error.message, exigeJustificativa: exige };
   }
@@ -103,4 +130,59 @@ export async function definirPrazo(formData: FormData) {
 
   revalidatePath("/quadro");
   revalidatePath(`/pedidos/${id}`);
+}
+
+/**
+ * Recebe o que falta e conclui, na mesma ação. Separado em duas chamadas
+ * do banco de propósito: se o pagamento entrar e a mudança de coluna
+ * falhar, o dinheiro registrado continua valendo — é o que de fato
+ * aconteceu no balcão.
+ */
+export async function receberEConcluir(input: {
+  pedidoId: string;
+  colunaId: string;
+  /** Ausente fora do quadro (na ficha não há arrasto): vai para o fim. */
+  posicao?: number;
+  valor: number;
+  forma: string;
+}): Promise<ResultadoMover> {
+  const perfil = await requerAuth();
+  const supabase = await createClient();
+
+  if (input.valor > 0) {
+    const { data: fin } = await supabase
+      .from("vw_pedido_financeiro")
+      .select("saldo_devedor")
+      .eq("pedido_id", input.pedidoId)
+      .maybeSingle();
+
+    const saldo = Number(fin?.saldo_devedor ?? 0);
+
+    const { error } = await supabase.from("pagamentos").insert({
+      pedido_id: input.pedidoId,
+      tipo: input.valor >= saldo ? "quitacao" : "parcela",
+      valor: input.valor,
+      forma: input.forma,
+      recebido_por: perfil.id,
+      created_by: perfil.id,
+    });
+
+    if (error) return { ok: false, erro: error.message };
+
+    revalidatePath("/financeiro");
+    revalidatePath(`/pedidos/${input.pedidoId}`);
+  }
+
+  if (input.posicao === undefined) {
+    return moverPedidoParaColuna({
+      pedidoId: input.pedidoId,
+      colunaId: input.colunaId,
+    });
+  }
+
+  return moverPedido({
+    pedidoId: input.pedidoId,
+    colunaId: input.colunaId,
+    posicao: input.posicao,
+  });
 }
