@@ -54,6 +54,30 @@ export function diasAte(iso: string | null | undefined): number | null {
   return Math.round((alvo.getTime() - hoje.getTime()) / 86_400_000);
 }
 
+/** Timestamp em DD/MM/AAAA no fuso de São Paulo. */
+export function dataSP(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+/**
+ * "2026-09" no fuso de São Paulo. Fatiar o ISO direto agruparia errado
+ * o que foi feito depois das 21h — lá já é o mês seguinte em UTC.
+ */
+export function mesSP(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO,
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date(iso));
+}
+
 export const MESES = [
   "jan", "fev", "mar", "abr", "mai", "jun",
   "jul", "ago", "set", "out", "nov", "dez",

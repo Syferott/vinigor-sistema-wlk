@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { requerDono } from "@/lib/auth";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { EstadoVazio } from "@/components/vazio";
+import { BadgeBalcao } from "@/components/badges";
 import { GraficoFaturamento, type PontoMes } from "./grafico";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, MESES, MESES_LONGOS, variacao } from "@/lib/format";
+import { brl, dataSP, mesSP, MESES, MESES_LONGOS, variacao } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BotaoLink } from "@/components/botao-link";
 import { Download, TrendingDown, TrendingUp } from "lucide-react";
@@ -27,6 +29,16 @@ type LinhaMes = {
   total_recebido: number;
   qtd_pedidos: number;
   ticket_medio: number;
+};
+
+type VendaConcluida = {
+  id: string;
+  numero: string;
+  orcamento_id: string | null;
+  cliente_id: string;
+  valor_total: number;
+  concluido_em: string;
+  clientes: { nome: string } | null;
 };
 
 export default async function PaginaRelatorios({
@@ -55,9 +67,48 @@ export default async function PaginaRelatorios({
     Number(anoParam) || anosDisponiveis[0] || anoAtual;
   const anoAnterior = anoSelecionado - 1;
 
+  // As vendas que já fecharam o ciclo — entregues, recebidas e tiradas do
+  // quadro. É o detalhe por trás dos números acima: dá para clicar e ver
+  // de onde veio cada real. Achamos a coluna pelo slug, porque o nome é
+  // editável pelo dono.
+  const { data: colunaConcluido } = await supabase
+    .from("colunas")
+    .select("id")
+    .eq("slug", "concluido")
+    .maybeSingle();
+
   const doAno = (ano: number) => linhas.filter((l) => l.ano === ano);
   const buscarMes = (ano: number, mes: number) =>
     linhas.find((l) => l.ano === ano && l.mes === mes);
+
+  const { data: concluidasBrutas } = colunaConcluido
+    ? await supabase
+        .from("pedidos")
+        .select(
+          "id, numero, orcamento_id, cliente_id, valor_total, concluido_em, clientes(nome)",
+        )
+        .eq("coluna_id", colunaConcluido.id)
+        .is("deleted_at", null)
+        .gte("concluido_em", `${anoSelecionado}-01-01T00:00:00-03:00`)
+        .lt("concluido_em", `${anoSelecionado + 1}-01-01T00:00:00-03:00`)
+        .order("concluido_em", { ascending: false })
+        .limit(500)
+    : { data: [] };
+
+  const concluidas = (concluidasBrutas ?? []) as unknown as VendaConcluida[];
+  const totalConcluido = concluidas.reduce(
+    (soma, v) => soma + Number(v.valor_total),
+    0,
+  );
+
+  // Um bloco por mês, com subtotal — mesma leitura do contas a pagar.
+  const porMes: { mes: string; vendas: VendaConcluida[] }[] = [];
+  for (const v of concluidas) {
+    const mes = mesSP(v.concluido_em);
+    const ultimo = porMes.at(-1);
+    if (ultimo?.mes === mes) ultimo.vendas.push(v);
+    else porMes.push({ mes, vendas: [v] });
+  }
 
   const dados: PontoMes[] = MESES.map((rotulo, i) => {
     const mes = i + 1;
@@ -250,6 +301,95 @@ export default async function PaginaRelatorios({
               </Table>
             </div>
           </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Vendas concluídas em {anoSelecionado}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {concluidas.length === 0
+                ? "Nenhuma ainda. No quadro, arraste para Concluído o pedido já entregue e pago — ele sai da produção e aparece aqui."
+                : `${concluidas.length} ${
+                    concluidas.length === 1 ? "venda" : "vendas"
+                  } · ${brl(totalConcluido)}. Entregues, recebidas e fora do quadro — nada foi excluído, tudo continua contando nos números acima.`}
+            </p>
+          </CardHeader>
+          {concluidas.length > 0 && (
+            <CardContent className="px-0">
+              <div className="overflow-x-auto scroll-fino">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pedido</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Concluída</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {porMes.map((g) => (
+                      <Fragment key={g.mes}>
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell
+                            colSpan={4}
+                            className="bg-muted/60 py-2 font-medium"
+                          >
+                            <div className="flex items-baseline justify-between gap-3">
+                              <span>
+                                {MESES_LONGOS[Number(g.mes.slice(5)) - 1]}
+                              </span>
+                              <span className="text-sm text-muted-foreground tabular">
+                                {g.vendas.length}{" "}
+                                {g.vendas.length === 1 ? "venda" : "vendas"} ·{" "}
+                                {brl(
+                                  g.vendas.reduce(
+                                    (soma, v) => soma + Number(v.valor_total),
+                                    0,
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+
+                        {g.vendas.map((v) => (
+                          <TableRow key={v.id}>
+                            <TableCell className="font-medium tabular">
+                              <Link
+                                href={`/pedidos/${v.id}`}
+                                className="hover:underline"
+                              >
+                                {v.numero}
+                              </Link>
+                              {!v.orcamento_id && (
+                                <BadgeBalcao className="mt-1 flex w-fit" />
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[240px]">
+                              <Link
+                                href={`/clientes/${v.cliente_id}`}
+                                className="block truncate hover:underline"
+                              >
+                                {v.clientes?.nome ?? "—"}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="tabular">
+                              {dataSP(v.concluido_em)}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold tabular">
+                              {brl(v.valor_total)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         <Card>
