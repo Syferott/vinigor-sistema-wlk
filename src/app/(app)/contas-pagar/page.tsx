@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requerDono } from "@/lib/auth";
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, dataBR, diasAte } from "@/lib/format";
+import { brl, dataBR, diasAte, MESES_LONGOS } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopyPlus, Trash2, Undo2 } from "lucide-react";
 import {
@@ -81,6 +82,25 @@ export default async function PaginaContasPagar({
     .reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
 
   const soma = (l: typeof linhas) => l.reduce((s, c) => s + Number(c.valor), 0);
+
+  // Agrupa pela mesma data que ordena a lista — vencimento, ou pagamento
+  // quando o filtro é "Pagas". Como as contas já vêm ordenadas, basta
+  // quebrar o grupo quando o mês muda.
+  const mesDe = (c: ContaPagar) =>
+    ((atual === "pagas" ? c.pago_em : null) ?? c.vencimento).slice(0, 7);
+
+  const grupos: { mes: string; contas: ContaPagar[] }[] = [];
+  for (const c of contas) {
+    const mes = mesDe(c);
+    const ultimo = grupos.at(-1);
+    if (ultimo?.mes === mes) ultimo.contas.push(c);
+    else grupos.push({ mes, contas: [c] });
+  }
+
+  const rotuloMes = (mes: string) => {
+    const [ano, m] = mes.split("-");
+    return `${MESES_LONGOS[Number(m) - 1]} de ${ano}`;
+  };
 
   return (
     <>
@@ -151,116 +171,142 @@ export default async function PaginaContasPagar({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contas.map((c) => {
-                    const dias = diasAte(c.vencimento);
-                    const vencida = !c.pago_em && dias !== null && dias < 0;
-                    return (
-                      <TableRow key={c.id}>
+                  {grupos.map((g) => (
+                    <Fragment key={g.mes}>
+                      <TableRow className="hover:bg-transparent">
                         <TableCell
-                          className={cn(
-                            "tabular",
-                            vencida && "font-medium text-red-600",
-                          )}
+                          colSpan={6}
+                          className="bg-muted/60 py-2 font-medium"
                         >
-                          {dataBR(c.vencimento)}
-                          {vencida && (
-                            <span className="block text-xs">
-                              {Math.abs(dias!)}d de atraso
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span>{rotuloMes(g.mes)}</span>
+                            <span className="text-sm text-muted-foreground tabular">
+                              {g.contas.length}{" "}
+                              {g.contas.length === 1 ? "conta" : "contas"} ·{" "}
+                              {brl(
+                                g.contas.reduce(
+                                  (soma, c) => soma + Number(c.valor),
+                                  0,
+                                ),
+                              )}
                             </span>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="max-w-[240px]">
-                          <p className="truncate font-medium">{c.descricao}</p>
-                          {c.credor && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {c.credor}
-                            </p>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                          {CATEGORIAS_CONTA[c.categoria] ?? c.categoria}
-                        </TableCell>
-
-                        <TableCell className="text-right font-medium tabular">
-                          {brl(c.valor)}
-                          {c.valor_pago != null &&
-                            Number(c.valor_pago) !== Number(c.valor) && (
-                              <span className="block text-xs text-muted-foreground">
-                                pago {brl(c.valor_pago)}
-                              </span>
-                            )}
-                        </TableCell>
-
-                        <TableCell>
-                          {c.pago_em ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f2d4] px-2 py-0.5 text-xs font-medium text-[#3f5a15]">
-                              Paga {dataBR(c.pago_em)}
-                              {c.forma ? ` · ${FORMAS_PAGAMENTO[c.forma]}` : ""}
-                            </span>
-                          ) : vencida ? (
-                            <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                              Vencida
-                            </span>
-                          ) : (
-                            <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                              Em aberto
-                            </span>
-                          )}
-                        </TableCell>
-
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-1">
-                            {c.pago_em ? (
-                              <form action={estornarConta}>
-                                <input type="hidden" name="id" value={c.id} />
-                                <Button
-                                  type="submit"
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Desfazer baixa"
-                                >
-                                  <Undo2 /> Estornar
-                                </Button>
-                              </form>
-                            ) : (
-                              <DialogBaixa conta={c} />
-                            )}
-
-                            {c.recorrente && (
-                              <form action={repetirNoProximoMes}>
-                                <input type="hidden" name="id" value={c.id} />
-                                <Button
-                                  type="submit"
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Criar a mesma conta no mês seguinte"
-                                  aria-label="Repetir no próximo mês"
-                                >
-                                  <CopyPlus className="size-4" />
-                                </Button>
-                              </form>
-                            )}
-
-                            <DialogConta conta={c} />
-
-                            <form action={excluirConta}>
-                              <input type="hidden" name="id" value={c.id} />
-                              <Button
-                                type="submit"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Excluir ${c.descricao}`}
-                              >
-                                <Trash2 className="size-4 text-red-600" />
-                              </Button>
-                            </form>
                           </div>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
+
+                      {g.contas.map((c) => {
+                        const dias = diasAte(c.vencimento);
+                        const vencida =
+                          !c.pago_em && dias !== null && dias < 0;
+                        return (
+                          <TableRow key={c.id}>
+                            <TableCell
+                              className={cn(
+                                "tabular",
+                                vencida && "font-medium text-red-600",
+                              )}
+                            >
+                              {dataBR(c.vencimento)}
+                              {vencida && (
+                                <span className="block text-xs">
+                                  {Math.abs(dias!)}d de atraso
+                                </span>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="max-w-[240px]">
+                              <p className="truncate font-medium">{c.descricao}</p>
+                              {c.credor && (
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {c.credor}
+                                </p>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="hidden text-muted-foreground md:table-cell">
+                              {CATEGORIAS_CONTA[c.categoria] ?? c.categoria}
+                            </TableCell>
+
+                            <TableCell className="text-right font-medium tabular">
+                              {brl(c.valor)}
+                              {c.valor_pago != null &&
+                                Number(c.valor_pago) !== Number(c.valor) && (
+                                  <span className="block text-xs text-muted-foreground">
+                                    pago {brl(c.valor_pago)}
+                                  </span>
+                                )}
+                            </TableCell>
+
+                            <TableCell>
+                              {c.pago_em ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f2d4] px-2 py-0.5 text-xs font-medium text-[#3f5a15]">
+                                  Paga {dataBR(c.pago_em)}
+                                  {c.forma ? ` · ${FORMAS_PAGAMENTO[c.forma]}` : ""}
+                                </span>
+                              ) : vencida ? (
+                                <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                                  Vencida
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                  Em aberto
+                                </span>
+                              )}
+                            </TableCell>
+
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                {c.pago_em ? (
+                                  <form action={estornarConta}>
+                                    <input type="hidden" name="id" value={c.id} />
+                                    <Button
+                                      type="submit"
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Desfazer baixa"
+                                    >
+                                      <Undo2 /> Estornar
+                                    </Button>
+                                  </form>
+                                ) : (
+                                  <DialogBaixa conta={c} />
+                                )}
+
+                                {c.recorrente && (
+                                  <form action={repetirNoProximoMes}>
+                                    <input type="hidden" name="id" value={c.id} />
+                                    <Button
+                                      type="submit"
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Criar a mesma conta no mês seguinte"
+                                      aria-label="Repetir no próximo mês"
+                                    >
+                                      <CopyPlus className="size-4" />
+                                    </Button>
+                                  </form>
+                                )}
+
+                                <DialogConta conta={c} />
+
+                                <form action={excluirConta}>
+                                  <input type="hidden" name="id" value={c.id} />
+                                  <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={`Excluir ${c.descricao}`}
+                                  >
+                                    <Trash2 className="size-4 text-red-600" />
+                                  </Button>
+                                </form>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
                 </TableBody>
               </Table>
             </div>
