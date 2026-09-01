@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CalendarClock, GripVertical, User } from "lucide-react";
-import { BadgeFinanceiro } from "@/components/badges";
+import { BadgeBalcao, BadgeFinanceiro } from "@/components/badges";
 import { brl, dataBR, diasAte } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CardPedido } from "@/lib/types";
@@ -59,12 +59,17 @@ export function CardQuadro({
         </button>
 
         <div className="min-w-0 flex-1">
-          <Link
-            href={`/pedidos/${card.id}`}
-            className="block text-xs font-semibold tabular text-muted-foreground hover:underline"
-          >
-            {card.numero}
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href={`/pedidos/${card.id}`}
+              className="text-xs font-semibold tabular text-muted-foreground hover:underline"
+            >
+              {card.numero}
+            </Link>
+            {!card.orcamento_id && (
+              <BadgeBalcao className="px-1.5 py-0 text-[10px]" />
+            )}
+          </div>
           <p className="truncate text-sm font-medium">{card.cliente_nome}</p>
           <p className="line-clamp-2 text-xs text-muted-foreground">
             {card.resumo}

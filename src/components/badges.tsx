@@ -1,3 +1,4 @@
+import { ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SITUACAO_FINANCEIRA,
@@ -26,6 +27,23 @@ export function BadgeFinanceiro({
     <span className={cn(base, s.classe, className)}>
       <span aria-hidden>{s.emoji}</span>
       {s.rotulo}
+    </span>
+  );
+}
+
+/**
+ * Pedido sem orçamento — nasceu no balcão. Depois de virar pedido as duas
+ * origens são a mesma coisa para a produção e para o financeiro, então
+ * quem olha a lista não tem como saber de onde veio sem isto.
+ */
+export function BadgeBalcao({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(base, "bg-sky-100 text-sky-800", className)}
+      title="Venda de balcão, sem orçamento"
+    >
+      <ShoppingCart className="size-3" />
+      Balcão
     </span>
   );
 }
