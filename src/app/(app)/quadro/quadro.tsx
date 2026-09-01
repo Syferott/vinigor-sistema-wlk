@@ -31,7 +31,7 @@ import { CabecalhoPagina } from "@/components/pagina";
 import { BotaoLink } from "@/components/botao-link";
 import { brl } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Columns3Cog, Plus, ShoppingCart } from "lucide-react";
 import type { CardPedido, Coluna, Profile } from "@/lib/types";
 
 export function Quadro({
@@ -39,6 +39,7 @@ export function Quadro({
   cardsIniciais,
   equipe,
   podeVerTotais,
+  podeEditarColunas,
   erroInicial,
   pedidoExcluido,
 }: {
@@ -46,6 +47,7 @@ export function Quadro({
   cardsIniciais: CardPedido[];
   equipe: Profile[];
   podeVerTotais: boolean;
+  podeEditarColunas?: boolean;
   erroInicial?: string;
   pedidoExcluido?: boolean;
 }) {
@@ -227,6 +229,11 @@ export function Quadro({
             : `${visiveis.length} pedidos em aberto`
         }
       >
+        {podeEditarColunas && (
+          <BotaoLink href="/quadro/colunas" variant="ghost">
+            <Columns3Cog /> Colunas
+          </BotaoLink>
+        )}
         <BotaoLink href="/balcao" variant="outline">
           <ShoppingCart /> Venda balcão
         </BotaoLink>

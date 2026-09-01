@@ -11,6 +11,7 @@ import {
   Package,
   Wallet,
   Receipt,
+  CheckCheck,
   BarChart3,
   UserCog,
   LogOut,
@@ -39,6 +40,12 @@ const ITENS: Item[] = [
   { href: "/servicos", rotulo: "Serviços", icone: Package },
   { href: "/financeiro", rotulo: "Contas a receber", icone: Wallet, somenteDono: true },
   { href: "/contas-pagar", rotulo: "Contas a pagar", icone: Receipt, somenteDono: true },
+  {
+    href: "/vendas-concluidas",
+    rotulo: "Vendas concluídas",
+    icone: CheckCheck,
+    somenteDono: true,
+  },
   { href: "/relatorios", rotulo: "Relatórios", icone: BarChart3, somenteDono: true },
   { href: "/usuarios", rotulo: "Usuários", icone: UserCog, somenteDono: true },
 ];

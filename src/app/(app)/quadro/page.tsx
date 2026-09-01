@@ -101,6 +101,7 @@ export default async function PaginaQuadro({
       cardsIniciais={cards}
       equipe={(equipe ?? []) as Profile[]}
       podeVerTotais={perfil.role === "dono"}
+      podeEditarColunas={perfil.role === "dono"}
       erroInicial={typeof erro === "string" ? erro : undefined}
       pedidoExcluido={excluido === "1"}
     />
