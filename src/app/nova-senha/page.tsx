@@ -24,7 +24,7 @@ export default async function PaginaNovaSenha({
     <main className="flex min-h-svh items-center justify-center bg-[#f6f8f3] p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <LogoVinigor tamanho={96} className="mx-auto rounded-xl shadow-sm" />
+          <LogoVinigor largura={180} className="mx-auto" />
           <p className="mt-2 text-sm text-muted-foreground">
             {user ? "Defina sua nova senha" : "Link inválido ou expirado"}
           </p>

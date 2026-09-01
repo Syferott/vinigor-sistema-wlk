@@ -18,7 +18,7 @@ export default async function PaginaTrocarSenha() {
     <main className="flex min-h-svh items-center justify-center bg-[#f6f8f3] p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <LogoVinigor tamanho={80} className="mx-auto rounded-xl shadow-sm" />
+          <LogoVinigor largura={180} className="mx-auto" />
           <h1 className="mt-4 text-lg font-semibold">
             {perfil.senha_provisoria ? "Crie sua senha" : "Alterar senha"}
           </h1>

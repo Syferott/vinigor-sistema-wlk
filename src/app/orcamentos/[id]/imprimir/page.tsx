@@ -52,11 +52,10 @@ export default async function ImprimirOrcamento({
                 html2canvas fotografa, sem passar pelo otimizador do Next. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-vinigor.jpeg"
+              src="/logo-vinigor.png"
               alt="VINIGOR Gráfica"
-              width={104}
-              height={104}
-              className="rounded-lg"
+              width={168}
+              height={134}
             />
           </div>
           <div className="text-right">

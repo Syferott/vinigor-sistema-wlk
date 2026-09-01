@@ -9,7 +9,7 @@ export default function PaginaLogin() {
     <main className="flex min-h-svh items-center justify-center bg-[#f6f8f3] p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <LogoVinigor tamanho={96} className="mx-auto rounded-xl shadow-sm" />
+          <LogoVinigor largura={200} className="mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">
             Sistema de gestão da gráfica
           </p>

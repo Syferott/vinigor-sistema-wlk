@@ -20,7 +20,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LogoVinigor, NomeVinigor } from "@/components/logo";
+import { LogoVinigor } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { sair } from "@/app/login/actions";
 import type { Profile } from "@/lib/types";
@@ -59,9 +59,8 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
     <>
       {/* Topo mobile */}
       <header className="flex items-center justify-between border-b bg-[#4a4a4a] px-4 py-3 md:hidden">
-        <Link href="/quadro" className="flex items-center gap-2">
-          <LogoVinigor tamanho={32} />
-          <NomeVinigor tema="escuro" className="text-lg" />
+        <Link href="/quadro">
+          <LogoVinigor tema="escuro" largura={124} />
         </Link>
         <Button
           variant="ghost"
@@ -80,9 +79,8 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
           aberto ? "flex" : "hidden md:flex",
         )}
       >
-        <div className="hidden items-center gap-2 px-5 py-5 md:flex">
-          <LogoVinigor tamanho={40} />
-          <NomeVinigor tema="escuro" className="text-xl" />
+        <div className="hidden px-5 py-6 md:block">
+          <LogoVinigor tema="escuro" largura={168} />
         </div>
 
         <ul className="flex flex-1 flex-col gap-1 p-3">

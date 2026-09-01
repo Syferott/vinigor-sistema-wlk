@@ -81,11 +81,11 @@ export default async function ReciboPedido({
       <header className="border-b-2 border-[#8cc63e] pb-3 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo-vinigor.jpeg"
+          src="/logo-vinigor.png"
           alt="VINIGOR Gráfica"
-          width={72}
-          height={72}
-          className="mx-auto rounded-lg"
+          width={132}
+          height={105}
+          className="mx-auto"
         />
         <p className="mt-2 text-xs uppercase tracking-widest text-[#6b7066]">
           Recibo

@@ -1,37 +1,47 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-const ARQUIVO = "/logo-vinigor.jpeg";
+/** Altura ÷ largura do arquivo (474 × 377). */
+const PROPORCAO = 377 / 474;
 
 /**
- * Logo oficial da VINIGOR (225x225, JPEG com fundo claro próprio).
+ * Marca da VINIGOR, em duas versões do mesmo desenho: a tinta clara é
+ * branca, a escura é o cinza #4a4a4a. Só muda o "V", o "VINI" e o
+ * "GRÁFICA" — o verde é o mesmo nos dois.
  *
- * Por ter fundo — não é PNG com transparência — ela não pode ser colada
- * direto sobre a barra escura: viraria um quadrado branco. Onde o fundo
- * é escuro, ela entra como ladrilho arredondado (lê como selo, de
- * propósito) acompanhada do nome em texto, que é o que fica legível em
- * tamanho pequeno.
+ * `tema` é o fundo em que a marca vai pousar, não a cor dela: em fundo
+ * escuro entra a versão branca. Trocar isso apaga metade do logotipo,
+ * porque cada versão some no fundo da outra.
+ *
+ * O arquivo já traz o nome por extenso, então não precisa de texto ao
+ * lado — mas também não sobrevive a tamanhos pequenos: abaixo de ~120px
+ * de largura o "GRÁFICA" vira borrão.
  */
 export function LogoVinigor({
-  tamanho = 40,
+  largura = 160,
+  tema = "claro",
   className,
 }: {
-  tamanho?: number;
+  largura?: number;
+  tema?: "claro" | "escuro";
   className?: string;
 }) {
   return (
     <Image
-      src={ARQUIVO}
+      src={tema === "escuro" ? "/logo-vinigor-branca.png" : "/logo-vinigor.png"}
       alt="VINIGOR Gráfica"
-      width={tamanho}
-      height={tamanho}
+      width={largura}
+      height={Math.round(largura * PROPORCAO)}
       priority
-      className={cn("shrink-0 rounded-lg object-contain", className)}
+      className={cn("shrink-0 object-contain", className)}
     />
   );
 }
 
-/** Nome por extenso. Usado ao lado da marca onde ela aparece reduzida. */
+/**
+ * Nome por extenso, em texto. Fica para onde a marca não cabe — favicon
+ * grande, assinatura de e-mail, cabeçalho apertado.
+ */
 export function NomeVinigor({
   className,
   tema = "claro",
