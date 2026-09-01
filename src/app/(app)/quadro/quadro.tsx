@@ -31,7 +31,7 @@ import { CabecalhoPagina } from "@/components/pagina";
 import { BotaoLink } from "@/components/botao-link";
 import { brl } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, ShoppingCart } from "lucide-react";
 import type { CardPedido, Coluna, Profile } from "@/lib/types";
 
 export function Quadro({
@@ -227,6 +227,9 @@ export function Quadro({
             : `${visiveis.length} pedidos em aberto`
         }
       >
+        <BotaoLink href="/balcao" variant="outline">
+          <ShoppingCart /> Venda balcão
+        </BotaoLink>
         <BotaoLink href="/orcamentos/novo">
           <Plus /> Novo orçamento
         </BotaoLink>
