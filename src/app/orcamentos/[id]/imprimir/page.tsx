@@ -22,6 +22,7 @@ export default async function ImprimirOrcamento({
       .from("orcamentos")
       .select("*, clientes(nome, documento, telefone, email, endereco)")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle(),
     supabase.from("orcamento_itens").select("*").eq("orcamento_id", id).order("ordem"),
   ]);

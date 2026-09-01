@@ -8,6 +8,7 @@ import { hojeSP, parseValor, somaDias, texto } from "@/lib/format";
 import type { HistoricoPreco } from "@/lib/types";
 
 export type EstadoOrcamento = { erro?: string; ok?: boolean };
+export type ResultadoExclusao = { erro?: string };
 
 /** Cria o rascunho e manda direto para o editor de itens. */
 export async function criarOrcamento(
@@ -203,4 +204,36 @@ export async function novaVersao(formData: FormData) {
 
   revalidatePath("/orcamentos");
   redirect(`/orcamentos/${data}`);
+}
+
+/**
+ * RF-44: exclusão lógica. A trava mora no banco (fn_valida_exclusao_orcamento,
+ * SQLSTATE VG005/VG006/VG007) — dono, justificativa e nenhum pedido vivo
+ * pendurado no orçamento. Aqui só traduzimos o erro.
+ */
+export async function excluirOrcamento(
+  _estado: ResultadoExclusao,
+  formData: FormData,
+): Promise<ResultadoExclusao> {
+  await requerAuth();
+  const supabase = await createClient();
+
+  const id = String(formData.get("id"));
+  const motivo = texto(formData.get("motivo"));
+
+  if (!motivo || motivo.length < 3) {
+    return { erro: "Escreva o motivo da exclusão." };
+  }
+
+  const { error } = await supabase
+    .from("orcamentos")
+    .update({ deleted_at: new Date().toISOString(), exclusao_motivo: motivo })
+    .eq("id", id);
+
+  if (error) return { erro: error.message };
+
+  revalidatePath("/orcamentos");
+  // a ficha do cliente lista orçamentos: revalida /clientes/[id] também
+  revalidatePath("/clientes", "layout");
+  redirect("/orcamentos?excluido=1");
 }

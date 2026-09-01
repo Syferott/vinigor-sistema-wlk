@@ -5,6 +5,7 @@ import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { BadgeStatus } from "@/components/badges";
 import { EditorItens } from "./editor-itens";
 import { AcoesOrcamento } from "./acoes";
+import { DialogExcluirOrcamento } from "./excluir";
 import { atualizarCabecalho } from "../_actions";
 import { Button } from "@/components/ui/button";
 import { BotaoLink } from "@/components/botao-link";
@@ -30,13 +31,14 @@ export default async function PaginaOrcamento({
 }: PageProps<"/orcamentos/[id]">) {
   const { id } = await params;
   const { erro } = await searchParams;
-  await requerAuth();
+  const perfil = await requerAuth();
   const supabase = await createClient();
 
   const { data: orcamento } = await supabase
     .from("orcamentos")
     .select("*, clientes(id, nome, telefone, documento)")
     .eq("id", id)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!orcamento) notFound();
@@ -65,6 +67,7 @@ export default async function PaginaOrcamento({
         .from("pedidos")
         .select("id, numero")
         .eq("orcamento_id", id)
+        .is("deleted_at", null)
         .maybeSingle(),
     ]);
 
@@ -272,6 +275,15 @@ export default async function PaginaOrcamento({
             >
               <Printer /> Versão para impressão
             </BotaoLink>
+
+            {perfil.role === "dono" && (
+              <DialogExcluirOrcamento
+                orcamentoId={o.id}
+                numero={o.numero}
+                clienteNome={o.clientes.nome}
+                pedidoNumero={pedido?.numero}
+              />
+            )}
           </div>
         </div>
       </Conteudo>

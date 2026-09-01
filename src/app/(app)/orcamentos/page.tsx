@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { EstadoVazio } from "@/components/vazio";
+import { AvisoExclusao } from "./aviso";
 import { BadgeStatus } from "@/components/badges";
 import { BotaoLink } from "@/components/botao-link";
 import {
@@ -42,7 +43,7 @@ type Linha = {
 export default async function PaginaOrcamentos({
   searchParams,
 }: PageProps<"/orcamentos">) {
-  const { status } = await searchParams;
+  const { status, excluido } = await searchParams;
   await requerAuth();
   const supabase = await createClient();
 
@@ -63,6 +64,8 @@ export default async function PaginaOrcamentos({
 
   return (
     <>
+      <AvisoExclusao excluido={excluido === "1"} />
+
       <CabecalhoPagina
         titulo="Orçamentos"
         descricao={`${orcamentos.length} ${orcamentos.length === 1 ? "orçamento" : "orçamentos"}`}
