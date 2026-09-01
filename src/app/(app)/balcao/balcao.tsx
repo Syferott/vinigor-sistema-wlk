@@ -60,6 +60,8 @@ export function Balcao({
   const [preco, setPreco] = useState("");
 
   const [entregaImediata, setEntregaImediata] = useState(true);
+  const [fiado, setFiado] = useState(false);
+  const [combinado, setCombinado] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
   const [valorPago, setValorPago] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -105,7 +107,15 @@ export function Balcao({
 
   // Entrega na hora exige o total recebido — é a regra RF-29, que o
   // banco cobra de qualquer jeito. Aqui só adiantamos o preenchimento.
-  const pagamentoSugerido = valorPago || (entregaImediata ? total.toFixed(2) : "");
+  // No fiado a conta é outra: o valor fica em aberto de propósito, então
+  // nada de completar sozinho.
+  const pagamentoSugerido =
+    valorPago || (entregaImediata && !fiado ? total.toFixed(2) : "");
+  // Marcar fiado e receber o valor cheio deixa de ser fiado: sem saldo,
+  // nada a registrar como exceção.
+  const restante = Math.round((total - parseValor(valorPago)) * 100) / 100;
+  const entregaFiado = entregaImediata && fiado && restante > 0;
+  const faltaCombinado = entregaFiado && combinado.trim().length < 3;
 
   return (
     <form action={acao} className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -118,6 +128,16 @@ export function Balcao({
       />
       <input type="hidden" name="pagamento_valor" value={pagamentoSugerido} />
       <input type="hidden" name="pagamento_forma" value={formaPagamento} />
+      <input
+        type="hidden"
+        name="entrega_fiado"
+        value={entregaFiado ? "1" : "0"}
+      />
+      <input
+        type="hidden"
+        name="fiado_justificativa"
+        value={entregaFiado ? combinado : ""}
+      />
 
       <div className="grid min-w-0 gap-6">
         <Card>
@@ -313,11 +333,41 @@ export function Balcao({
               <span>
                 Entrega agora
                 <span className="block text-xs text-muted-foreground">
-                  Vai direto para Entregue. Exige o valor cheio recebido.
-                  Desmarque se for para produção.
+                  Vai direto para Entregue. Desmarque se for para produção.
                 </span>
               </span>
             </label>
+
+            {entregaImediata && (
+              <div className="grid gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={fiado}
+                    onCheckedChange={(v) => setFiado(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Leva agora e paga depois
+                    <span className="block text-xs text-muted-foreground">
+                      O que faltar fica em Contas a receber, no nome do
+                      cliente, com o combinado registrado no pedido.
+                    </span>
+                  </span>
+                </label>
+
+                {fiado && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="combinado">Combinado com o cliente *</Label>
+                    <Input
+                      id="combinado"
+                      value={combinado}
+                      onChange={(e) => setCombinado(e.target.value)}
+                      placeholder="Ex.: paga sexta no PIX"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-2">
               <Label htmlFor="forma">Forma</Label>
@@ -345,8 +395,9 @@ export function Balcao({
                 placeholder={total > 0 ? total.toFixed(2) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
-                Em branco, entra o total. Deixe menor para registrar sinal —
-                aí não dá para entregar na hora.
+                {entregaFiado
+                  ? "Em branco, não entra pagamento nenhum. Preencha se o cliente adiantou uma parte."
+                  : "Em branco, entra o total. Deixe menor para registrar sinal — aí não dá para entregar na hora."}
               </p>
             </div>
 
@@ -370,12 +421,22 @@ export function Balcao({
 
             <Button
               type="submit"
-              disabled={enviando || itens.length === 0 || !cliente}
+              disabled={
+                enviando || itens.length === 0 || !cliente || faltaCombinado
+              }
               className="w-full"
             >
               {enviando && <Loader2 className="animate-spin" />}
-              Finalizar venda · {brl(total)}
+              {entregaFiado
+                ? `Entregar fiado · ${brl(restante)}`
+                : `Finalizar venda · ${brl(total)}`}
             </Button>
+
+            {faltaCombinado && (
+              <p className="text-center text-xs text-muted-foreground">
+                Escreva o combinado para registrar a venda fiado.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

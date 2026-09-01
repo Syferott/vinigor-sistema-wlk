@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requerDono } from "@/lib/auth";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { EstadoVazio } from "@/components/vazio";
-import { BadgeFinanceiro } from "@/components/badges";
+import { BadgeBalcao, BadgeFinanceiro } from "@/components/badges";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -47,6 +47,31 @@ export default async function PaginaFinanceiro() {
     .order("prazo_entrega", { ascending: true, nullsFirst: false });
 
   const linhas = (data ?? []) as Linha[];
+
+  // A view não traz nem a origem nem o combinado da entrega fiado, e
+  // mudá-la exigiria migration. Como já sabemos quais pedidos estão em
+  // aberto, buscar só esses sai barato.
+  const origem = linhas.length
+    ? (
+        await supabase
+          .from("pedidos")
+          .select("id, orcamento_id, entregue_com_saldo, justificativa_saldo")
+          .in(
+            "id",
+            linhas.map((l) => l.pedido_id),
+          )
+      ).data
+    : [];
+
+  type Origem = {
+    id: string;
+    orcamento_id: string | null;
+    entregue_com_saldo: boolean;
+    justificativa_saldo: string | null;
+  };
+  const porPedido = new Map(
+    ((origem ?? []) as Origem[]).map((p) => [p.id, p]),
+  );
   const total = linhas.reduce((s, l) => s + Number(l.saldo_devedor), 0);
   const entregues = linhas.filter((l) => l.entregue);
   const totalEntregues = entregues.reduce(
@@ -98,6 +123,8 @@ export default async function PaginaFinanceiro() {
                   const atrasado =
                     l.dias_de_atraso !== null && l.dias_de_atraso > 0;
                   const wa = linkWhatsapp(l.cliente_telefone);
+                  const o = porPedido.get(l.pedido_id);
+                  const fiado = o?.entregue_com_saldo && o.justificativa_saldo;
                   return (
                     <TableRow key={l.pedido_id}>
                       <TableCell className="font-medium tabular">
@@ -107,6 +134,9 @@ export default async function PaginaFinanceiro() {
                         >
                           {l.numero}
                         </Link>
+                        {o && !o.orcamento_id && (
+                          <BadgeBalcao className="mt-1 flex w-fit" />
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         <Link
@@ -116,8 +146,13 @@ export default async function PaginaFinanceiro() {
                           {l.cliente_nome}
                         </Link>
                         {l.cliente_telefone && (
-                          <span className="text-xs text-muted-foreground tabular">
+                          <span className="block text-xs text-muted-foreground tabular">
                             {telefoneBR(l.cliente_telefone)}
+                          </span>
+                        )}
+                        {fiado && (
+                          <span className="block truncate text-xs text-amber-700">
+                            Levou sem pagar · {o!.justificativa_saldo}
                           </span>
                         )}
                       </TableCell>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
 import { parseValor, texto } from "@/lib/format";
+import { moverPedidoParaColuna } from "@/app/(app)/quadro/_actions";
 
 export type EstadoVenda = { erro?: string };
 
@@ -36,10 +37,32 @@ export async function finalizarVenda(
   const entregaImediata = formData.get("entrega_imediata") === "1";
   const valorPago = parseValor(formData.get("pagamento_valor"));
 
+  // Fiado: o cliente leva agora e paga depois. A trava de entrega com
+  // saldo (RF-29) continua de pé — o que muda é que aqui ela é atendida
+  // pelo caminho da exceção, com o combinado registrado no pedido, em vez
+  // de barrar a venda. É o mesmo caminho do quadro, então o pedido nasce
+  // rastreável: aparece em Contas a receber e a justificativa fica na
+  // ficha.
+  const totalItens = itens.reduce(
+    (s, i) => s + Math.round(i.quantidade * i.preco_unitario * 100) / 100,
+    0,
+  );
+  const fiado =
+    formData.get("entrega_fiado") === "1" &&
+    entregaImediata &&
+    valorPago < totalItens;
+  const combinado = texto(formData.get("fiado_justificativa"));
+
+  if (fiado && (!combinado || combinado.length < 3)) {
+    return { erro: "Escreva o combinado de pagamento para entregar fiado." };
+  }
+
   const { data, error } = await supabase.rpc("criar_venda_balcao", {
     p_cliente_id: cliente_id,
     p_itens: itens,
-    p_entrega_imediata: entregaImediata,
+    // no fiado o pedido nasce em Aprovado e a entrega vem no passo
+    // seguinte, que é onde cabe a justificativa
+    p_entrega_imediata: entregaImediata && !fiado,
     p_pagamento_valor: valorPago > 0 ? valorPago : null,
     p_pagamento_forma: texto(formData.get("pagamento_forma")),
     p_observacoes: texto(formData.get("observacoes")),
@@ -49,15 +72,47 @@ export async function finalizarVenda(
     // VG001 vem do trigger de entrega: faltou dinheiro para entregar agora.
     if (error.code === "VG001") {
       return {
-        erro: "Para entregar na hora, o pagamento precisa cobrir o total. Receba o valor cheio ou desmarque a entrega imediata.",
+        erro: "Para entregar na hora, o pagamento precisa cobrir o total. Receba o valor cheio, marque “leva agora e paga depois” ou desmarque a entrega imediata.",
       };
     }
     return { erro: error.message };
   }
 
+  const pedidoId = data as string;
+
+  if (fiado) {
+    const { data: entregue } = await supabase
+      .from("colunas")
+      .select("id")
+      .eq("slug", "entregue")
+      .maybeSingle();
+
+    if (!entregue) {
+      return {
+        erro: "Venda registrada, mas não achei a coluna Entregue para mover o pedido.",
+      };
+    }
+
+    const movido = await moverPedidoParaColuna({
+      pedidoId,
+      colunaId: entregue.id,
+      justificativa: combinado!,
+    });
+
+    // A venda já existe: mandar para a ficha com o erro é melhor do que
+    // deixar o vendedor achando que nada foi gravado.
+    if (!movido.ok) {
+      redirect(
+        `/pedidos/${pedidoId}?erro=${encodeURIComponent(
+          `Venda registrada, mas não consegui marcar como entregue: ${movido.erro}`,
+        )}`,
+      );
+    }
+  }
+
   revalidatePath("/quadro");
   revalidatePath("/financeiro");
-  redirect(`/pedidos/${data}`);
+  redirect(`/pedidos/${pedidoId}`);
 }
 
 /**
