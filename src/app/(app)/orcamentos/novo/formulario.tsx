@@ -15,6 +15,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2, Plus } from "lucide-react";
 
+/**
+ * O que o cadastro do cliente já diz e o orçamento repetiria à mão:
+ * observações da ficha e condições de pagamento combinadas. Sai no
+ * bloco "Condições e observações" do orçamento impresso.
+ */
+function textoDoCliente(c: ClienteOpcao): string {
+  return [c.observacoes, c.condicoes_padrao]
+    .map((t) => t?.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function FormularioNovoOrcamento({
   clientes,
   clienteInicial,
@@ -32,15 +44,17 @@ export function FormularioNovoOrcamento({
   // A lista é local para o cliente recém-cadastrado aparecer sem recarregar.
   const [lista, setLista] = useState(clientes);
   const [selecionado, setSelecionado] = useState(clienteInicial);
+  const inicial = clientes.find((c) => c.id === clienteInicial);
   const [observacoes, setObservacoes] = useState(
-    clientes.find((c) => c.id === clienteInicial)?.condicoes_padrao ?? "",
+    inicial ? textoDoCliente(inicial) : "",
   );
 
   function selecionar(c: ClienteOpcao) {
     setSelecionado(c.id);
-    // Condições combinadas com aquele cliente entram sozinhas; ainda dá
-    // para ajustar caso a caso antes de enviar.
-    if (c.condicoes_padrao) setObservacoes(c.condicoes_padrao);
+    // O que está no cadastro do cliente entra sozinho; ainda dá para
+    // ajustar caso a caso antes de enviar.
+    const texto = textoDoCliente(c);
+    if (texto) setObservacoes(texto);
   }
 
   return (
@@ -108,6 +122,10 @@ export function FormularioNovoOrcamento({
               onChange={(e) => setObservacoes(e.target.value)}
               placeholder="Prazo, forma de pagamento, dados bancários…"
             />
+            <p className="text-xs text-muted-foreground">
+              Vem das observações e das condições padrão do cliente. Edite à
+              vontade — sai assim no orçamento impresso.
+            </p>
           </div>
 
           {estado.erro && (

@@ -132,6 +132,10 @@ export function FormularioCliente({ cliente }: { cliente?: Cliente }) {
               rows={3}
               defaultValue={v("observacoes")}
             />
+            <p className="text-xs text-muted-foreground">
+              Entra nas observações de todo orçamento deste cliente, e sai no
+              impresso — ali ainda dá para ajustar caso a caso.
+            </p>
           </div>
 
           <div className="grid gap-2 sm:col-span-2">

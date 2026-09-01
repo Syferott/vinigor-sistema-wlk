@@ -13,6 +13,7 @@ export type ClienteOpcao = {
   telefone: string | null;
   documento: string | null;
   condicoes_padrao?: string | null;
+  observacoes?: string | null;
 };
 
 export function SeletorCliente({

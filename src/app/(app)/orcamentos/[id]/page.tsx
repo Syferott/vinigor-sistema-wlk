@@ -6,12 +6,12 @@ import { BadgeStatus } from "@/components/badges";
 import { EditorItens } from "./editor-itens";
 import { AcoesOrcamento } from "./acoes";
 import { DialogExcluirOrcamento } from "./excluir";
+import { CampoObservacoes } from "./observacoes";
 import { atualizarCabecalho } from "../_actions";
 import { Button } from "@/components/ui/button";
 import { BotaoLink } from "@/components/botao-link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft, ExternalLink, Lock, Printer } from "lucide-react";
 import { brl, dataBR, diasAte } from "@/lib/format";
@@ -36,7 +36,7 @@ export default async function PaginaOrcamento({
 
   const { data: orcamento } = await supabase
     .from("orcamentos")
-    .select("*, clientes(id, nome, telefone, documento)")
+    .select("*, clientes(id, nome, telefone, documento, observacoes, condicoes_padrao)")
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -72,6 +72,11 @@ export default async function PaginaOrcamento({
     ]);
 
   const listaItens = (itens ?? []) as ItemOrcamento[];
+  // Mesmo texto que o "novo orçamento" já traz do cadastro do cliente.
+  const textoDoCliente = [o.clientes.observacoes, o.clientes.condicoes_padrao]
+    .map((t) => t?.trim())
+    .filter(Boolean)
+    .join("\n\n");
   const aprovado = o.status === "aprovado";
   const podeEditar = !aprovado;
   const diasValidade = diasAte(o.validade);
@@ -240,16 +245,11 @@ export default async function PaginaOrcamento({
                     </div>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="observacoes">Observações</Label>
-                    <Textarea
-                      id="observacoes"
-                      name="observacoes"
-                      rows={3}
-                      defaultValue={o.observacoes ?? ""}
-                      disabled={aprovado}
-                    />
-                  </div>
+                  <CampoObservacoes
+                    valorInicial={o.observacoes ?? ""}
+                    textoDoCliente={textoDoCliente}
+                    desabilitado={aprovado}
+                  />
 
                   {!aprovado && (
                     <Button type="submit" variant="outline">

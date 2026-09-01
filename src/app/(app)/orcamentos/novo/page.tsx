@@ -14,7 +14,7 @@ export default async function NovoOrcamento({
   const [{ data: clientes }, { data: config }] = await Promise.all([
     supabase
       .from("clientes")
-      .select("id, nome, telefone, documento, condicoes_padrao")
+      .select("id, nome, telefone, documento, condicoes_padrao, observacoes")
       .is("deleted_at", null)
       .order("nome")
       .limit(1000),
