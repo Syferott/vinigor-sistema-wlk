@@ -4,6 +4,7 @@ import { requerAuth } from "@/lib/auth";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { BadgeStatus } from "@/components/badges";
 import { EditorItens } from "./editor-itens";
+import { EditorItensPedido } from "@/components/editor-itens-pedido";
 import { AcoesOrcamento } from "./acoes";
 import { DialogExcluirOrcamento } from "./excluir";
 import { CampoObservacoes } from "./observacoes";
@@ -19,6 +20,7 @@ import type {
   Cliente,
   ItemOrcamento,
   Orcamento,
+  PedidoFinanceiro,
   Profile,
   Servico,
 } from "@/lib/types";
@@ -65,11 +67,32 @@ export default async function PaginaOrcamento({
         .order("nome"),
       supabase
         .from("pedidos")
-        .select("id, numero")
+        .select("id, numero, valor_total")
         .eq("orcamento_id", id)
         .is("deleted_at", null)
         .maybeSingle(),
     ]);
+
+  const pedidoAberto = pedido as {
+    id: string;
+    numero: string;
+    valor_total: number;
+  } | null;
+
+  const [{ data: itensPedido }, { data: finPedido }] = pedidoAberto
+    ? await Promise.all([
+        supabase
+          .from("pedido_itens")
+          .select("*")
+          .eq("pedido_id", pedidoAberto.id)
+          .order("ordem"),
+        supabase
+          .from("vw_pedido_financeiro")
+          .select("total_pago, saldo_devedor, valor_total")
+          .eq("pedido_id", pedidoAberto.id)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }];
 
   const listaItens = (itens ?? []) as ItemOrcamento[];
   // Mesmo texto que o "novo orçamento" já traz do cadastro do cliente.
@@ -105,17 +128,18 @@ export default async function PaginaOrcamento({
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#cfe3aa] bg-[#f4faea] p-3 text-sm text-[#3f5a15]">
             <Lock className="size-4" />
             <span>
-              Orçamento aprovado — imutável para preservar o histórico. Para
-              mudar algo, gere uma nova versão.
+              {pedidoAberto
+                ? "Orçamento aprovado. O cabeçalho fica como foi fechado. Os itens abaixo são os do pedido em produção — dá para aumentar, e o total e o saldo recalculam."
+                : "Orçamento aprovado. O cabeçalho fica como foi fechado. Para um trabalho novo, gere uma versão."}
             </span>
-            {pedido && (
+            {pedidoAberto && (
               <BotaoLink
                 variant="outline"
                 size="sm"
                 className="ml-auto"
-                href={`/pedidos/${pedido.id}`}
+                href={`/pedidos/${pedidoAberto.id}`}
               >
-                Ver pedido {pedido.numero} <ExternalLink />
+                Ver pedido {pedidoAberto.numero} <ExternalLink />
               </BotaoLink>
             )}
           </div>
@@ -123,13 +147,29 @@ export default async function PaginaOrcamento({
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="min-w-0">
-            <EditorItens
-              orcamentoId={o.id}
-              clienteId={o.cliente_id}
-              servicos={(servicos ?? []) as Servico[]}
-              itens={listaItens}
-              podeEditar={podeEditar}
-            />
+            {aprovado && pedidoAberto ? (
+              <EditorItensPedido
+                key={(itensPedido ?? [])
+                  .map((i: ItemOrcamento) => `${i.id}:${i.total}`)
+                  .join("|")}
+                pedidoId={pedidoAberto.id}
+                itens={(itensPedido ?? []) as ItemOrcamento[]}
+                servicos={(servicos ?? []) as Servico[]}
+                desconto={{ tipo: o.desconto_tipo, valor: Number(o.desconto_valor) }}
+                totalPago={Number(
+                  (finPedido as PedidoFinanceiro | null)?.total_pago ?? 0,
+                )}
+                titulo="Itens em produção"
+              />
+            ) : (
+              <EditorItens
+                orcamentoId={o.id}
+                clienteId={o.cliente_id}
+                servicos={(servicos ?? []) as Servico[]}
+                itens={listaItens}
+                podeEditar={podeEditar}
+              />
+            )}
           </div>
 
           <div className="grid h-fit gap-4">
@@ -152,11 +192,25 @@ export default async function PaginaOrcamento({
                   )}`}
                 />
                 <div className="mt-2 flex items-baseline justify-between border-t pt-3">
-                  <span className="font-medium">Total</span>
+                  <span className="font-medium">
+                    {pedidoAberto ? "Total do pedido" : "Total"}
+                  </span>
                   <span className="text-2xl font-semibold tabular">
-                    {brl(o.total)}
+                    {brl(pedidoAberto ? pedidoAberto.valor_total : o.total)}
                   </span>
                 </div>
+                {pedidoAberto &&
+                  Number(pedidoAberto.valor_total) !== Number(o.total) && (
+                    <Linha rotulo="Total do orçamento" valor={brl(o.total)} />
+                  )}
+                {pedidoAberto && finPedido && (
+                  <Linha
+                    rotulo="Resta receber"
+                    valor={brl(
+                      (finPedido as { saldo_devedor: number }).saldo_devedor,
+                    )}
+                  />
+                )}
               </CardContent>
             </Card>
 

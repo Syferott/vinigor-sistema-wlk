@@ -21,19 +21,28 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import { moverPedido, receberEConcluir } from "./_actions";
+import { registrarPagamento } from "@/app/(app)/pedidos/_actions";
 import { CardQuadro } from "./card";
 import { FiltrosQuadro, type Filtros, filtroVazio, aplicarFiltros } from "./filtros";
 import { DialogEntregaComSaldo } from "./dialog-entrega";
 import { DialogConclusaoComSaldo } from "./dialog-conclusao";
+import { DialogReceber, type RecebimentoCard } from "./dialog-receber";
+import { AvisoRecorrentes } from "./aviso-recorrentes";
 import { CabecalhoPagina } from "@/components/pagina";
 import { BotaoLink } from "@/components/botao-link";
-import { brl } from "@/lib/format";
+import { brl, hojeSP } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Columns3Cog, Plus, ShoppingCart } from "lucide-react";
+import type { ClienteParaContatar } from "@/lib/recorrencia";
 import type { CardPedido, Coluna, Profile } from "@/lib/types";
+
+/** Arquivo morto do quadro: não estica a página. O resto rola dentro da coluna. */
+const COLUNA_RECOLHIDA = new Set(["concluido", "cancelado"]);
+const LIMITE_RECOLHIDA = 8;
+const PASSO_RECOLHIDA = 15;
 
 export function Quadro({
   colunas,
@@ -43,6 +52,7 @@ export function Quadro({
   podeEditarColunas,
   erroInicial,
   pedidoExcluido,
+  paraContatar,
 }: {
   colunas: Coluna[];
   cardsIniciais: CardPedido[];
@@ -51,6 +61,7 @@ export function Quadro({
   podeEditarColunas?: boolean;
   erroInicial?: string;
   pedidoExcluido?: boolean;
+  paraContatar: ClienteParaContatar[];
 }) {
   const router = useRouter();
   const [cards, definirCards] = useState<CardPedido[]>(cardsIniciais);
@@ -67,6 +78,7 @@ export function Quadro({
     posicao: number;
     saldo: number;
   } | null>(null);
+  const [receber, setReceber] = useState<CardPedido | null>(null);
 
   const ignorarRealtimeAte = useRef(0);
 
@@ -234,8 +246,45 @@ export function Quadro({
     [visiveis],
   );
 
+  async function confirmarRecebimento(recebimento: RecebimentoCard) {
+    if (!receber) return;
+    const dados = new FormData();
+    dados.set("pedido_id", receber.id);
+    dados.set("valor", String(recebimento.valor));
+    dados.set("forma", recebimento.forma);
+    dados.set(
+      "tipo",
+      recebimento.forma === "faturado"
+        ? "parcela"
+        : recebimento.valor >= Number(receber.saldo_devedor)
+          ? "quitacao"
+          : "parcela",
+    );
+    dados.set(
+      "data_pagamento",
+      recebimento.forma === "faturado" ? recebimento.data : hojeSP(),
+    );
+    if (recebimento.forma === "faturado") {
+      dados.set("agendado_meio", recebimento.meio);
+      dados.set("agendado_para", recebimento.data);
+    }
+
+    const r = await registrarPagamento({}, dados);
+    if (r.ok) {
+      toast.success(
+        recebimento.forma === "faturado"
+          ? `${brl(recebimento.valor)} faturado. O saldo continua em aberto até o dinheiro entrar.`
+          : `${brl(recebimento.valor)} registrado em ${receber.numero}.`,
+      );
+      setReceber(null);
+    } else {
+      toast.error(r.erro ?? "Não consegui registrar o pagamento.");
+    }
+    router.refresh();
+  }
+
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <CabecalhoPagina
         titulo="Quadro de produção"
         descricao={
@@ -264,6 +313,8 @@ export function Quadro({
         aoMudar={setFiltros}
       />
 
+      <AvisoRecorrentes clientes={paraContatar} />
+
       <DndContext
         sensors={sensores}
         collisionDetection={closestCorners}
@@ -271,13 +322,14 @@ export function Quadro({
         onDragOver={aoPassarPor}
         onDragEnd={aoSoltar}
       >
-        <div className="scroll-fino flex gap-4 overflow-x-auto p-4 sm:p-6">
+        <div className="scroll-sempre flex min-h-0 flex-1 gap-4 overflow-x-scroll overflow-y-hidden p-4 sm:p-6">
           {colunas.map((coluna) => (
             <ColunaQuadro
               key={coluna.id}
               coluna={coluna}
               cards={porColuna.get(coluna.id) ?? []}
               podeVerTotais={podeVerTotais}
+              aoReceber={setReceber}
             />
           ))}
         </div>
@@ -327,6 +379,12 @@ export function Quadro({
         }}
       />
 
+      <DialogReceber
+        card={receber}
+        aoFechar={() => setReceber(null)}
+        aoConfirmar={confirmarRecebimento}
+      />
+
       <DialogEntregaComSaldo
         pendente={entregaPendente}
         aoFechar={() => setEntregaPendente(null)}
@@ -338,7 +396,7 @@ export function Quadro({
           router.refresh();
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -346,24 +404,30 @@ function ColunaQuadro({
   coluna,
   cards,
   podeVerTotais,
+  aoReceber,
 }: {
   coluna: Coluna;
   cards: CardPedido[];
   podeVerTotais: boolean;
+  aoReceber: (card: CardPedido) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id });
   const total = cards.reduce((s, c) => s + Number(c.valor_total), 0);
+  const recolhida = COLUNA_RECOLHIDA.has(coluna.slug);
+  const [mostrar, setMostrar] = useState(LIMITE_RECOLHIDA);
+  const visiveis = recolhida ? cards.slice(0, mostrar) : cards;
+  const ocultos = cards.length - visiveis.length;
 
   return (
     <section
       ref={setNodeRef}
       className={cn(
-        "flex w-72 shrink-0 flex-col rounded-xl border bg-card/60 transition-colors",
+        "flex h-full max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border bg-card/60 transition-colors",
         isOver && "border-[#8cc63e] bg-[#f4faea]",
       )}
     >
       <header
-        className="flex items-center gap-2 rounded-t-xl border-b px-3 py-2.5"
+        className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5"
         style={{ borderTop: `3px solid ${coluna.cor}` }}
       >
         <h2 className="flex-1 truncate text-sm font-semibold">{coluna.nome}</h2>
@@ -373,22 +437,54 @@ function ColunaQuadro({
       </header>
 
       {podeVerTotais && cards.length > 0 && (
-        <p className="border-b px-3 py-1.5 text-xs text-muted-foreground tabular">
+        <p className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground tabular">
           {brl(total)}
         </p>
       )}
 
+      {recolhida && cards.length > LIMITE_RECOLHIDA && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/40 px-2 py-1.5">
+          <p className="text-[11px] text-muted-foreground tabular">
+            {Math.min(mostrar, cards.length)} de {cards.length}
+          </p>
+          <div className="flex gap-1">
+            {ocultos > 0 && (
+              <button
+                type="button"
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-[#3f5a15] hover:bg-[#e7f2d4]"
+                onClick={() =>
+                  setMostrar((n) => Math.min(cards.length, n + PASSO_RECOLHIDA))
+                }
+              >
+                Ver mais
+              </button>
+            )}
+            {mostrar > LIMITE_RECOLHIDA && (
+              <button
+                type="button"
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+                onClick={() => setMostrar(LIMITE_RECOLHIDA)}
+              >
+                Recolher
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <SortableContext
-        items={cards.map((c) => c.id)}
+        items={visiveis.map((c) => c.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="scroll-fino flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto p-2">
+        <div className="scroll-sempre flex min-h-0 flex-1 flex-col gap-2 overflow-y-scroll overscroll-contain p-2">
           {cards.length === 0 ? (
             <p className="px-2 py-6 text-center text-xs text-muted-foreground">
               Arraste um card para cá
             </p>
           ) : (
-            cards.map((card) => <CardQuadro key={card.id} card={card} />)
+            visiveis.map((card) => (
+              <CardQuadro key={card.id} card={card} aoReceber={aoReceber} />
+            ))
           )}
         </div>
       </SortableContext>

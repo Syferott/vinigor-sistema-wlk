@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
 import { texto } from "@/lib/format";
+import { erroDeMigracao, TEXTO_MIGRACAO_0017 } from "@/lib/migracao";
 import type { Cliente } from "@/lib/types";
 
 export type EstadoCliente = {
@@ -42,6 +43,16 @@ export async function salvarCliente(
     return { erro: "O nome é obrigatório.", valores };
   }
 
+  const gravarRecorrencia = formData.get("recorrencia_disponivel") === "1";
+  const recorrente = formData.get("recorrente") === "1";
+  const dias = Number(formData.get("recorrencia_dias") || 0);
+  if (gravarRecorrencia && recorrente && (!Number.isInteger(dias) || dias < 1 || dias > 3650)) {
+    return {
+      erro: "Informe de quantos em quantos dias este cliente costuma pedir (de 1 a 3650).",
+      valores,
+    };
+  }
+
   // RF-04: duplicidade é aviso, não trava.
   if (!forcar && (dados.documento || dados.telefone)) {
     const { data: dups } = await supabase.rpc("clientes_duplicados", {
@@ -54,6 +65,8 @@ export async function salvarCliente(
       return { duplicados: dups, valores };
     }
   }
+
+  let salvoId = id;
 
   if (id) {
     const { error } = await supabase
@@ -68,14 +81,31 @@ export async function salvarCliente(
       .select("id")
       .single();
     if (error) return { erro: error.message, valores };
+    salvoId = data.id;
+  }
 
-    revalidatePath("/clientes");
-    redirect(`/clientes/${data.id}`);
+  if (gravarRecorrencia && salvoId) {
+    const { error } = await supabase
+      .from("clientes")
+      .update({
+        recorrente,
+        recorrencia_dias: recorrente ? dias : null,
+      })
+      .eq("id", salvoId);
+
+    if (error) {
+      revalidatePath("/clientes");
+      revalidatePath(`/clientes/${salvoId}`);
+      const aviso = erroDeMigracao(error)
+        ? TEXTO_MIGRACAO_0017
+        : `Cliente salvo, mas a recorrência não entrou: ${error.message}`;
+      redirect(`/clientes/${salvoId}?aviso=${encodeURIComponent(aviso)}`);
+    }
   }
 
   revalidatePath("/clientes");
-  revalidatePath(`/clientes/${id}`);
-  redirect(`/clientes/${id}`);
+  revalidatePath(`/clientes/${salvoId}`);
+  redirect(`/clientes/${salvoId}`);
 }
 
 /** RF-44: exclusão sempre lógica. Nada some do banco. */

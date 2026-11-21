@@ -4,6 +4,7 @@ import { requerAuth } from "@/lib/auth";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
 import { BadgeFinanceiro } from "@/components/badges";
 import { DialogPagamento } from "./pagamentos";
+import { EditorItensPedido } from "@/components/editor-itens-pedido";
 import { SeletorEtapa } from "./etapa";
 import { DialogExcluirPedido } from "./excluir";
 import { atualizarPedido, estornarPagamento, repetirPedido } from "../_actions";
@@ -30,15 +31,17 @@ import {
   Undo2,
   Printer,
 } from "lucide-react";
-import { brl, dataBR, dataHoraBR, qtd } from "@/lib/format";
+import { brl, dataBR, dataHoraBR, telefoneBR } from "@/lib/format";
 import {
-  FORMAS_PAGAMENTO,
+  FORMAS_RECEBIMENTO,
+  MEIO_FATURADO,
   TIPOS_PAGAMENTO,
   type ItemOrcamento,
   type Coluna,
   type Pagamento,
   type PedidoFinanceiro,
   type Profile,
+  type Servico,
 } from "@/lib/types";
 
 export const metadata = { title: "Pedido" };
@@ -80,6 +83,8 @@ export default async function PaginaPedido({
     { data: equipe },
     { data: config },
     { data: colunas },
+    { data: servicos },
+    { data: orcamento },
   ] = await Promise.all([
     supabase.from("pedido_itens").select("*").eq("pedido_id", id).order("ordem"),
     supabase
@@ -114,6 +119,19 @@ export default async function PaginaPedido({
       .eq("chave", "sinal_percentual_padrao")
       .maybeSingle(),
     supabase.from("colunas").select("*").eq("ativo", true).order("ordem"),
+    supabase
+      .from("servicos")
+      .select("*")
+      .is("deleted_at", null)
+      .eq("ativo", true)
+      .order("nome"),
+    pedido.orcamento_id
+      ? supabase
+          .from("orcamentos")
+          .select("desconto_tipo, desconto_valor")
+          .eq("id", pedido.orcamento_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const p = pedido as Record<string, unknown> & {
@@ -128,7 +146,9 @@ export default async function PaginaPedido({
     entregue_em: string | null;
     entregue_com_saldo: boolean;
     justificativa_saldo: string | null;
-    clientes: { id: string; nome: string } | null;
+    nome_avulso: string | null;
+    telefone_avulso: string | null;
+    clientes: { id: string; nome: string; telefone: string | null } | null;
     colunas: { nome: string; cor: string; is_final: boolean } | null;
   };
 
@@ -142,12 +162,28 @@ export default async function PaginaPedido({
   const listaPagamentos = (pagamentos ?? []) as unknown as (Pagamento & {
     recebedor: { nome: string } | null;
   })[];
+  const listaItens = (itens ?? []) as ItemOrcamento[];
+  const desconto = orcamento
+    ? {
+        tipo: (orcamento as { desconto_tipo: string }).desconto_tipo,
+        valor: Number((orcamento as { desconto_valor: number }).desconto_valor),
+      }
+    : null;
+  const nomeExibido = p.nome_avulso?.trim() || p.clientes?.nome;
+  const telefoneExibido = p.telefone_avulso?.trim() || p.clientes?.telefone;
+  const faturados = listaPagamentos.filter((g) => g.forma === "faturado");
 
   return (
     <>
       <CabecalhoPagina
         titulo={p.numero}
-        descricao={p.clientes?.nome ?? undefined}
+        descricao={
+          nomeExibido
+            ? `${nomeExibido}${telefoneExibido ? ` · ${telefoneBR(telefoneExibido)}` : ""}${
+                p.nome_avulso?.trim() ? " · sem cadastro" : ""
+              }`
+            : undefined
+        }
       >
         <span
           className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
@@ -179,56 +215,19 @@ export default async function PaginaPedido({
             </p>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Itens (cópia congelada do orçamento)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto scroll-fino">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-right">Qtd.</TableHead>
-                      <TableHead className="text-right">Unitário</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {((itens ?? []) as ItemOrcamento[]).map((i) => {
-                      const specs = Object.entries(i.especificacoes ?? {})
-                        .filter(([, v]) => v)
-                        .map(([k, v]) => `${k}: ${v}`)
-                        .join(" · ");
-                      return (
-                        <TableRow key={i.id}>
-                          <TableCell className="max-w-md">
-                            <p className="font-medium">{i.descricao}</p>
-                            {specs && (
-                              <p className="text-xs text-muted-foreground">
-                                {specs}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right tabular">
-                            {qtd(i.quantidade)}
-                          </TableCell>
-                          <TableCell className="text-right tabular">
-                            {brl(i.preco_unitario)}
-                          </TableCell>
-                          <TableCell className="text-right font-medium tabular">
-                            {brl(i.total)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <EditorItensPedido
+            key={listaItens.map((i) => `${i.id}:${i.total}`).join("|")}
+            pedidoId={p.id}
+            itens={listaItens}
+            servicos={(servicos ?? []) as Servico[]}
+            desconto={desconto}
+            totalPago={Number(fin.total_pago)}
+            titulo={
+              p.orcamento_id
+                ? "Itens do pedido (o cliente pode aumentar na produção)"
+                : "Itens da venda de balcão"
+            }
+          />
 
           <Card>
             <CardHeader>
@@ -265,7 +264,16 @@ export default async function PaginaPedido({
                         </TableCell>
                         <TableCell>{TIPOS_PAGAMENTO[g.tipo]}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                          {FORMAS_PAGAMENTO[g.forma]}
+                          {FORMAS_RECEBIMENTO[g.forma] ?? g.forma}
+                          {g.forma === "faturado" && g.agendado_para && (
+                            <span className="block text-xs text-sky-800">
+                              {g.agendado_meio
+                                ? MEIO_FATURADO[g.agendado_meio]
+                                : "Faturado"}{" "}
+                              · {dataBR(g.agendado_para)}
+                              {" · não entrou no caixa"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="hidden text-muted-foreground md:table-cell">
                           {g.recebedor?.nome ?? "—"}
@@ -368,6 +376,18 @@ export default async function PaginaPedido({
                 </span>
               </div>
               <BadgeFinanceiro situacao={fin.situacao} />
+
+              {faturados.length > 0 && (
+                <ul className="grid gap-1 text-xs text-sky-900">
+                  {faturados.map((g) => (
+                    <li key={g.id}>
+                      Faturado{" "}
+                      {g.agendado_meio ? MEIO_FATURADO[g.agendado_meio] : ""} ·{" "}
+                      {dataBR(g.agendado_para)} · {brl(g.valor)}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               <DialogPagamento
                 pedidoId={p.id}

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
 import { parseValor, texto } from "@/lib/format";
+import { erroDeMigracao, TEXTO_MIGRACAO_0017 } from "@/lib/migracao";
+import { registrarPagamento } from "@/app/(app)/pedidos/_actions";
 import { moverPedidoParaColuna } from "@/app/(app)/quadro/_actions";
 
 export type EstadoVenda = { erro?: string };
@@ -23,8 +25,16 @@ export async function finalizarVenda(
   await requerAuth();
   const supabase = await createClient();
 
-  const cliente_id = texto(formData.get("cliente_id"));
-  if (!cliente_id) return { erro: "Escolha o cliente da venda." };
+  const nomeAvulso = texto(formData.get("nome_avulso"));
+  const telefoneAvulso = texto(formData.get("telefone_avulso"));
+  let cliente_id = texto(formData.get("cliente_id"));
+  if (!cliente_id && nomeAvulso) {
+    const generico = await consumidorFinal();
+    cliente_id = generico?.id ?? null;
+  }
+  if (!cliente_id) {
+    return { erro: "Escolha o cliente ou escreva o nome na venda." };
+  }
 
   let itens: ItemVenda[];
   try {
@@ -35,7 +45,23 @@ export async function finalizarVenda(
   if (itens.length === 0) return { erro: "Adicione ao menos um item." };
 
   const entregaImediata = formData.get("entrega_imediata") === "1";
-  const valorPago = parseValor(formData.get("pagamento_valor"));
+  const forma = texto(formData.get("pagamento_forma"));
+  const faturado = forma === "faturado";
+  const valorPago = faturado ? 0 : parseValor(formData.get("pagamento_valor"));
+
+  if (faturado) {
+    const meio = texto(formData.get("agendado_meio"));
+    const data = texto(formData.get("agendado_para"));
+    if (meio !== "boleto" && meio !== "pix") {
+      return { erro: "Diga se o faturado é boleto ou PIX." };
+    }
+    if (!data) return { erro: "Informe a data do boleto ou do PIX." };
+    if (entregaImediata && formData.get("entrega_fiado") !== "1") {
+      return {
+        erro: "Faturado deixa o valor em aberto. Desmarque “Entrega agora” para mandar para produção, ou marque “leva agora e paga depois”.",
+      };
+    }
+  }
 
   // Fiado: o cliente leva agora e paga depois. A trava de entrega com
   // saldo (RF-29) continua de pé — o que muda é que aqui ela é atendida
@@ -62,9 +88,9 @@ export async function finalizarVenda(
     p_itens: itens,
     // no fiado o pedido nasce em Aprovado e a entrega vem no passo
     // seguinte, que é onde cabe a justificativa
-    p_entrega_imediata: entregaImediata && !fiado,
+    p_entrega_imediata: entregaImediata && !fiado && !faturado,
     p_pagamento_valor: valorPago > 0 ? valorPago : null,
-    p_pagamento_forma: texto(formData.get("pagamento_forma")),
+    p_pagamento_forma: faturado ? "dinheiro" : forma,
     p_observacoes: texto(formData.get("observacoes")),
   });
 
@@ -79,6 +105,49 @@ export async function finalizarVenda(
   }
 
   const pedidoId = data as string;
+  let avisoNome = "";
+
+  if (nomeAvulso || telefoneAvulso) {
+    const { error: erroNome } = await supabase
+      .from("pedidos")
+      .update({
+        nome_avulso: nomeAvulso,
+        telefone_avulso: telefoneAvulso,
+      })
+      .eq("id", pedidoId);
+
+    if (erroNome && erroDeMigracao(erroNome)) {
+      const obs = [
+        texto(formData.get("observacoes")),
+        nomeAvulso ? `Cliente (sem cadastro): ${nomeAvulso}` : null,
+        telefoneAvulso ? `Telefone: ${telefoneAvulso}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      await supabase.from("pedidos").update({ observacoes: obs }).eq("id", pedidoId);
+      avisoNome = `A venda entrou. O nome avulso foi para as observações porque a migration 0017 ainda não rodou. ${TEXTO_MIGRACAO_0017}`;
+    } else if (erroNome) {
+      avisoNome = `A venda entrou, mas o nome avulso não gravou: ${erroNome.message}`;
+    }
+  }
+
+  if (faturado) {
+    const dados = new FormData();
+    dados.set("pedido_id", pedidoId);
+    dados.set("valor", String(parseValor(formData.get("valor_faturado"))));
+    dados.set("forma", "faturado");
+    dados.set("tipo", "parcela");
+    dados.set("agendado_meio", texto(formData.get("agendado_meio")) ?? "");
+    dados.set("agendado_para", texto(formData.get("agendado_para")) ?? "");
+    const lancado = await registrarPagamento({}, dados);
+    if (!lancado.ok) {
+      redirect(
+        `/pedidos/${pedidoId}?erro=${encodeURIComponent(
+          `Venda registrada, mas o faturado não entrou: ${lancado.erro ?? ""}`,
+        )}`,
+      );
+    }
+  }
 
   if (fiado) {
     const { data: entregue } = await supabase
@@ -112,6 +181,9 @@ export async function finalizarVenda(
 
   revalidatePath("/quadro");
   revalidatePath("/financeiro");
+  if (avisoNome) {
+    redirect(`/pedidos/${pedidoId}?erro=${encodeURIComponent(avisoNome)}`);
+  }
   redirect(`/pedidos/${pedidoId}`);
 }
 

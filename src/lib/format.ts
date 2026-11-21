@@ -9,6 +9,36 @@ const numero = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 3,
 });
 
+export function round2(n: number): number {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+/**
+ * Mesma conta do trigger fn_recalcula_orcamento: percentual incide sobre
+ * o subtotal, valor é abatido, e o total nunca fica negativo.
+ */
+export function totalComDesconto(
+  subtotal: number,
+  desconto?: { tipo: string; valor: number } | null,
+): number {
+  const sub = round2(subtotal);
+  const valor = Number(desconto?.valor ?? 0);
+  if (!desconto || valor <= 0) return sub;
+  if (desconto.tipo === "percentual") {
+    return round2(sub * (1 - Math.min(valor, 100) / 100));
+  }
+  return Math.max(0, round2(sub - valor));
+}
+
+/** `YYYY-MM-DD` no fuso de São Paulo. Data pura não é reinterpretada. */
+export function diaSP(iso: string | null | undefined): string {
+  if (!iso) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(d);
+}
+
 export function brl(valor: number | string | null | undefined): string {
   const n = typeof valor === "string" ? Number(valor) : (valor ?? 0);
   return moeda.format(Number.isFinite(n) ? n : 0);
