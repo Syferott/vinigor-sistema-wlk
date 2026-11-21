@@ -43,8 +43,10 @@ type PedidoLinha = {
 
 export default async function FichaCliente({
   params,
+  searchParams,
 }: PageProps<"/clientes/[id]">) {
   const { id } = await params;
+  const { aviso } = await searchParams;
   const supabase = await createClient();
 
   const [{ data: cliente }, { data: orcamentos }, { data: pedidos }, { data: financeiro }] =
@@ -101,6 +103,12 @@ export default async function FichaCliente({
       </CabecalhoPagina>
 
       <Conteudo className="grid gap-6">
+        {typeof aviso === "string" && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            {decodeURIComponent(aviso)}
+          </p>
+        )}
+
         {/* Situação financeira do cliente (RF-03) */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Indicador rotulo="Total faturado" valor={brl(totalFaturado)} />
@@ -123,6 +131,16 @@ export default async function FichaCliente({
               <Campo rotulo="E-mail" valor={c.email ?? "—"} />
               <Campo rotulo="Endereço" valor={c.endereco ?? "—"} />
               <Campo rotulo="Cliente desde" valor={dataBR(c.created_at)} />
+              {c.recorrente && (
+                <Campo
+                  rotulo="Recorrência"
+                  valor={
+                    c.recorrencia_dias
+                      ? `Pede a cada ${c.recorrencia_dias} dias. O quadro avisa; não sai mensagem.`
+                      : "Marcado, sem intervalo."
+                  }
+                />
+              )}
               {c.observacoes && (
                 <div>
                   <p className="text-xs text-muted-foreground">Observações</p>

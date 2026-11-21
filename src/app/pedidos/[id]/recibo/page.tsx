@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requerAuth } from "@/lib/auth";
 import { brl, dataBR, dataHoraBR, documentoBR, qtd, telefoneBR } from "@/lib/format";
 import {
-  FORMAS_PAGAMENTO,
+  FORMAS_RECEBIMENTO,
+  MEIO_FATURADO,
   type ItemOrcamento,
   type Pagamento,
   type PedidoFinanceiro,
@@ -48,6 +49,15 @@ export default async function ReciboPedido({
 
   if (!pedido) notFound();
 
+  const extra = await supabase
+    .from("pedidos")
+    .select("nome_avulso, telefone_avulso")
+    .eq("id", id)
+    .maybeSingle();
+  const avulso = extra.error
+    ? null
+    : (extra.data as { nome_avulso: string | null; telefone_avulso: string | null } | null);
+
   const p = pedido as unknown as {
     numero: string;
     created_at: string;
@@ -67,6 +77,8 @@ export default async function ReciboPedido({
   }) as PedidoFinanceiro;
 
   const saldo = Number(f.saldo_devedor);
+  const recebidosCaixa = recebidos.filter((g) => g.forma !== "faturado");
+  const faturados = recebidos.filter((g) => g.forma === "faturado");
 
   // O pedido herda o desconto dado no orçamento, então a soma dos itens
   // pode ser maior que o total. Sem mostrar a diferença, o recibo parece
@@ -98,12 +110,17 @@ export default async function ReciboPedido({
 
       <section className="border-b border-dashed border-[#d5dbcc] py-3">
         <p className="text-xs text-[#6b7066]">Cliente</p>
-        <p className="font-semibold">{p.clientes?.nome ?? "—"}</p>
+        <p className="font-semibold">{avulso?.nome_avulso?.trim() || p.clientes?.nome || "—"}</p>
         {p.clientes?.documento && (
           <p className="text-xs tabular">{documentoBR(p.clientes.documento)}</p>
         )}
-        {p.clientes?.telefone && (
-          <p className="text-xs tabular">{telefoneBR(p.clientes.telefone)}</p>
+        {(avulso?.telefone_avulso || p.clientes?.telefone) && (
+          <p className="text-xs tabular">
+            {telefoneBR(avulso?.telefone_avulso || p.clientes?.telefone)}
+          </p>
+        )}
+        {avulso?.nome_avulso?.trim() && (
+          <p className="text-xs text-[#6b7066]">Sem cadastro de cliente</p>
         )}
       </section>
 
@@ -144,13 +161,28 @@ export default async function ReciboPedido({
         </div>
       </section>
 
-      {recebidos.length > 0 && (
+      {faturados.length > 0 && (
+        <section className="mt-3 border-t border-dashed border-[#d5dbcc] pt-3">
+          <p className="mb-1 text-xs text-[#6b7066]">Faturado (ainda não entrou no caixa)</p>
+          {faturados.map((g) => (
+            <div key={g.id} className="flex justify-between text-xs">
+              <span>
+                {g.agendado_meio ? MEIO_FATURADO[g.agendado_meio] : "Faturado"} ·{" "}
+                {dataBR(g.agendado_para ?? g.data_pagamento)}
+              </span>
+              <span className="tabular">{brl(g.valor)}</span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {recebidosCaixa.length > 0 && (
         <section className="mt-3 border-t border-dashed border-[#d5dbcc] pt-3">
           <p className="mb-1 text-xs text-[#6b7066]">Pagamentos recebidos</p>
-          {recebidos.map((g) => (
+          {recebidosCaixa.map((g) => (
             <div key={g.id} className="flex justify-between text-xs">
               <span className="tabular">
-                {dataBR(g.data_pagamento)} · {FORMAS_PAGAMENTO[g.forma]}
+                {dataBR(g.data_pagamento)} · {FORMAS_RECEBIMENTO[g.forma] ?? g.forma}
               </span>
               <span className="tabular">{brl(g.valor)}</span>
             </div>
@@ -166,6 +198,13 @@ export default async function ReciboPedido({
             </div>
           )}
         </section>
+      )}
+
+      {recebidosCaixa.length === 0 && saldo > 0 && (
+        <div className="mt-3 flex justify-between border-t border-dashed border-[#d5dbcc] pt-3 text-sm font-semibold text-red-700">
+          <span>Saldo a pagar</span>
+          <span className="tabular">{brl(saldo)}</span>
+        </div>
       )}
 
       {p.observacoes && (

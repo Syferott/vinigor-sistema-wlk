@@ -16,8 +16,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Loader2, Wallet } from "lucide-react";
+import { CamposFaturado } from "@/components/campos-faturado";
 import { brl, hojeSP } from "@/lib/format";
-import { FORMAS_PAGAMENTO, TIPOS_PAGAMENTO, type Profile } from "@/lib/types";
+import {
+  FORMAS_RECEBIMENTO,
+  TIPOS_PAGAMENTO,
+  type MeioFaturado,
+  type Profile,
+} from "@/lib/types";
 
 const seletor =
   "h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
@@ -59,6 +65,9 @@ export function DialogPagamento({
     : saldoDevedor;
 
   const [valor, setValor] = useState(String(sugerido.toFixed(2)));
+  const [forma, setForma] = useState("pix");
+  const [meio, setMeio] = useState<MeioFaturado>("boleto");
+  const [dataFatura, setDataFatura] = useState(hojeSP());
 
   return (
     <Dialog
@@ -103,15 +112,22 @@ export function DialogPagamento({
               )}
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="data_pagamento">Data</Label>
-              <Input
-                id="data_pagamento"
-                name="data_pagamento"
-                type="date"
-                defaultValue={hojeSP()}
-              />
-            </div>
+            {forma === "faturado" ? (
+              <p className="self-end text-xs text-muted-foreground">
+                A data que vale é a combinada do boleto ou do PIX, logo abaixo.
+                Faturado não entra no caixa.
+              </p>
+            ) : (
+              <div className="grid gap-2">
+                <Label htmlFor="data_pagamento">Data</Label>
+                <Input
+                  id="data_pagamento"
+                  name="data_pagamento"
+                  type="date"
+                  defaultValue={hojeSP()}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -136,10 +152,11 @@ export function DialogPagamento({
               <select
                 id="forma"
                 name="forma"
-                defaultValue="pix"
+                value={forma}
+                onChange={(e) => setForma(e.target.value)}
                 className={seletor}
               >
-                {Object.entries(FORMAS_PAGAMENTO).map(([v, r]) => (
+                {Object.entries(FORMAS_RECEBIMENTO).map(([v, r]) => (
                   <option key={v} value={v}>
                     {r}
                   </option>
@@ -147,6 +164,14 @@ export function DialogPagamento({
               </select>
             </div>
           </div>
+
+          <CamposFaturado
+            forma={forma}
+            meio={meio}
+            data={dataFatura}
+            aoMudarMeio={setMeio}
+            aoMudarData={setDataFatura}
+          />
 
           <div className="grid gap-2">
             <Label htmlFor="recebido_por">Recebido por</Label>

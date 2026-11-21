@@ -68,7 +68,7 @@ export function Navegacao({ perfil }: { perfil: Profile }) {
 
       <nav
         className={cn(
-          "z-30 shrink-0 flex-col bg-[#4a4a4a] text-[#f2f4ef] md:flex md:w-60",
+          "z-30 max-h-[calc(100dvh-3.5rem)] shrink-0 flex-col overflow-y-auto bg-[#4a4a4a] text-[#f2f4ef] md:flex md:h-dvh md:max-h-none md:w-60",
           aberto ? "flex" : "hidden md:flex",
         )}
       >

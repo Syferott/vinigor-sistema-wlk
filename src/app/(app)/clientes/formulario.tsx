@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { salvarCliente, type EstadoCliente } from "./_actions";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { documentoBR, telefoneBR } from "@/lib/format";
 import type { Cliente } from "@/lib/types";
 
-export function FormularioCliente({ cliente }: { cliente?: Cliente }) {
+export function FormularioCliente({
+  cliente,
+  recorrenciaDisponivel = false,
+}: {
+  cliente?: Cliente;
+  recorrenciaDisponivel?: boolean;
+}) {
   const [estado, acao, enviando] = useActionState<EstadoCliente, FormData>(
     salvarCliente,
     {},
@@ -23,10 +30,17 @@ export function FormularioCliente({ cliente }: { cliente?: Cliente }) {
     estado.valores?.[campo] ?? (cliente?.[campo] as string | null) ?? "";
 
   const temDuplicados = (estado.duplicados?.length ?? 0) > 0;
+  const [recorrente, setRecorrente] = useState(Boolean(cliente?.recorrente));
 
   return (
     <form action={acao} className="grid max-w-3xl gap-6">
       {cliente && <input type="hidden" name="id" value={cliente.id} />}
+      <input
+        type="hidden"
+        name="recorrencia_disponivel"
+        value={recorrenciaDisponivel ? "1" : "0"}
+      />
+      <input type="hidden" name="recorrente" value={recorrente ? "1" : "0"} />
       {/* Reenvio após o aviso de duplicidade */}
       <input type="hidden" name="forcar" value={temDuplicados ? "1" : "0"} />
 
@@ -156,6 +170,47 @@ export function FormularioCliente({ cliente }: { cliente?: Cliente }) {
           </div>
         </CardContent>
       </Card>
+
+      {recorrenciaDisponivel ? (
+        <Card>
+          <CardContent className="grid gap-4 pt-6">
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={recorrente}
+                onCheckedChange={(v) => setRecorrente(v === true)}
+                className="mt-0.5"
+              />
+              <span>
+                Pede com frequência
+                <span className="block text-xs text-muted-foreground">
+                  O quadro avisa quando passar o intervalo desde o último
+                  pedido. Ninguém recebe mensagem automática.
+                </span>
+              </span>
+            </label>
+
+            {recorrente && (
+              <div className="grid max-w-xs gap-2">
+                <Label htmlFor="recorrencia_dias">A cada quantos dias</Label>
+                <Input
+                  id="recorrencia_dias"
+                  name="recorrencia_dias"
+                  type="number"
+                  min={1}
+                  max={3650}
+                  required
+                  defaultValue={cliente?.recorrencia_dias ?? 30}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Aviso de cliente recorrente fica disponível depois da migration 0017
+          no Supabase. O cadastro em si não depende disso.
+        </p>
+      )}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={enviando}>

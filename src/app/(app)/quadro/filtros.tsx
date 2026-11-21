@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { diasAte } from "@/lib/format";
+import { diaSP, diasAte } from "@/lib/format";
 import { X } from "lucide-react";
 import type { CardPedido, Profile } from "@/lib/types";
 
@@ -12,6 +12,10 @@ export type Filtros = {
   responsavel: string;
   prazo: "" | "atrasados" | "hoje" | "semana";
   pagamento: "" | "pago" | "parcial" | "sem_pagamento";
+  /** Qual data o período usa. Entrega é o prazo; criação é quando o pedido entrou. */
+  dataCampo: "entrega" | "criacao";
+  dataDe: string;
+  dataAte: string;
 };
 
 export const filtroVazio: Filtros = {
@@ -19,14 +23,33 @@ export const filtroVazio: Filtros = {
   responsavel: "",
   prazo: "",
   pagamento: "",
+  dataCampo: "entrega",
+  dataDe: "",
+  dataAte: "",
 };
+
+export function filtrosAtivos(f: Filtros): boolean {
+  return Boolean(
+    f.cliente || f.responsavel || f.prazo || f.pagamento || f.dataDe || f.dataAte,
+  );
+}
 
 /** RF-21 — filtros do topo do quadro. */
 export function aplicarFiltros(cards: CardPedido[], f: Filtros): CardPedido[] {
   const termo = f.cliente.trim().toLowerCase();
 
   return cards.filter((c) => {
-    if (termo && !c.cliente_nome.toLowerCase().includes(termo)) return false;
+    if (termo) {
+      const texto = [c.cliente_nome, c.nome_avulso, c.cliente_telefone, c.telefone_avulso]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const digitos = termo.replace(/\D/g, "");
+      const bateNome = texto.includes(termo);
+      const bateFone =
+        digitos.length >= 3 && texto.replace(/\D/g, "").includes(digitos);
+      if (!bateNome && !bateFone) return false;
+    }
 
     if (f.responsavel) {
       if (f.responsavel === "sem" && c.responsavel_id) return false;
@@ -42,6 +65,16 @@ export function aplicarFiltros(cards: CardPedido[], f: Filtros): CardPedido[] {
       if (f.prazo === "atrasados" && dias >= 0) return false;
       if (f.prazo === "hoje" && dias !== 0) return false;
       if (f.prazo === "semana" && (dias < 0 || dias > 7)) return false;
+    }
+
+    if (f.dataDe || f.dataAte) {
+      const iso =
+        f.dataCampo === "criacao"
+          ? diaSP(c.created_at)
+          : (c.prazo_entrega?.slice(0, 10) ?? "");
+      if (!iso) return false;
+      if (f.dataDe && iso < f.dataDe) return false;
+      if (f.dataAte && iso > f.dataAte) return false;
     }
 
     return true;
@@ -62,10 +95,7 @@ export function FiltrosQuadro({
   filtros: Filtros;
   aoMudar: (f: Filtros) => void;
 }) {
-  const ativos = useMemo(
-    () => Object.values(filtros).some(Boolean),
-    [filtros],
-  );
+  const ativos = useMemo(() => filtrosAtivos(filtros), [filtros]);
 
   const contagem = useMemo(() => {
     const atrasados = cards.filter((c) => {
@@ -80,7 +110,7 @@ export function FiltrosQuadro({
       <Input
         value={filtros.cliente}
         onChange={(e) => aoMudar({ ...filtros, cliente: e.target.value })}
-        placeholder="Filtrar por cliente…"
+        placeholder="Filtrar por cliente ou telefone…"
         className="h-9 w-full sm:w-56"
         aria-label="Filtrar por cliente"
       />
@@ -118,6 +148,37 @@ export function FiltrosQuadro({
 
       <select
         className={seletor}
+        value={filtros.dataCampo}
+        onChange={(e) =>
+          aoMudar({
+            ...filtros,
+            dataCampo: e.target.value as Filtros["dataCampo"],
+          })
+        }
+        aria-label="Qual data o período usa"
+      >
+        <option value="entrega">Período pela entrega</option>
+        <option value="criacao">Período pela criação</option>
+      </select>
+
+      <Input
+        type="date"
+        value={filtros.dataDe}
+        onChange={(e) => aoMudar({ ...filtros, dataDe: e.target.value })}
+        aria-label="Data inicial"
+        className="h-9 w-[9.5rem] bg-card"
+      />
+      <span className="text-xs text-muted-foreground">até</span>
+      <Input
+        type="date"
+        value={filtros.dataAte}
+        onChange={(e) => aoMudar({ ...filtros, dataAte: e.target.value })}
+        aria-label="Data final"
+        className="h-9 w-[9.5rem] bg-card"
+      />
+
+      <select
+        className={seletor}
         value={filtros.pagamento}
         onChange={(e) =>
           aoMudar({
@@ -137,6 +198,14 @@ export function FiltrosQuadro({
         <Button variant="ghost" size="sm" onClick={() => aoMudar(filtroVazio)}>
           <X /> Limpar
         </Button>
+      )}
+
+      {(filtros.dataDe || filtros.dataAte) && (
+        <p className="w-full text-xs text-muted-foreground">
+          {filtros.dataCampo === "entrega"
+            ? "Filtrando pelo prazo de entrega. Pedido sem prazo fica de fora deste período."
+            : "Filtrando pela data em que o pedido foi criado."}
+        </p>
       )}
     </div>
   );

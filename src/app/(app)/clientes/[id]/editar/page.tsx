@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CabecalhoPagina, Conteudo } from "@/components/pagina";
+import { colunaDisponivel } from "@/lib/schema";
 import { FormularioCliente } from "../../formulario";
 import type { Cliente } from "@/lib/types";
 
@@ -19,12 +20,16 @@ export default async function EditarCliente({
     .maybeSingle();
 
   if (!data) notFound();
+  const recorrenciaDisponivel = await colunaDisponivel("clientes", "recorrente");
 
   return (
     <>
       <CabecalhoPagina titulo={`Editar ${data.nome}`} />
       <Conteudo>
-        <FormularioCliente cliente={data as Cliente} />
+        <FormularioCliente
+          cliente={data as Cliente}
+          recorrenciaDisponivel={recorrenciaDisponivel}
+        />
       </Conteudo>
     </>
   );

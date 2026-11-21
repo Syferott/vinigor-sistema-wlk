@@ -19,6 +19,11 @@ export type FormaPagamento =
   | "boleto"
   | "transferencia";
 
+/** Recebimento do pedido. Faturado é compromisso, não é dinheiro no caixa. */
+export type FormaRecebimento = FormaPagamento | "faturado";
+
+export type MeioFaturado = "boleto" | "pix";
+
 export type Unidade = "un" | "m2" | "milheiro" | "cento" | "ml" | "kg" | "hora";
 
 export const UNIDADES: Record<Unidade, string> = {
@@ -38,6 +43,16 @@ export const FORMAS_PAGAMENTO: Record<FormaPagamento, string> = {
   credito: "Cartão de crédito",
   boleto: "Boleto",
   transferencia: "Transferência",
+};
+
+export const FORMAS_RECEBIMENTO: Record<FormaRecebimento, string> = {
+  ...FORMAS_PAGAMENTO,
+  faturado: "Faturado",
+};
+
+export const MEIO_FATURADO: Record<MeioFaturado, string> = {
+  boleto: "Boleto",
+  pix: "PIX",
 };
 
 export const TIPOS_PAGAMENTO: Record<TipoPagamento, string> = {
@@ -86,6 +101,9 @@ export interface Cliente {
   endereco: string | null;
   observacoes: string | null;
   condicoes_padrao: string | null;
+  /** Coluna da migration 0017. Ausente enquanto o SQL não rodou. */
+  recorrente?: boolean;
+  recorrencia_dias?: number | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -157,6 +175,9 @@ export interface Pedido {
   entregue_em: string | null;
   entregue_com_saldo: boolean;
   justificativa_saldo: string | null;
+  /** Migration 0017 — nome de balcão que não virou cadastro. */
+  nome_avulso?: string | null;
+  telefone_avulso?: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -176,10 +197,13 @@ export interface Pagamento {
   pedido_id: string;
   tipo: TipoPagamento;
   valor: number;
-  forma: FormaPagamento;
+  forma: FormaRecebimento;
   data_pagamento: string;
   recebido_por: string | null;
   observacao: string | null;
+  /** Migration 0017. Só quando forma = faturado. */
+  agendado_meio?: MeioFaturado | null;
+  agendado_para?: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -197,13 +221,20 @@ export interface HistoricoPreco {
 }
 
 /** Card do quadro, já com o financeiro e o cliente resolvidos. */
+export interface FaturamentoCard {
+  meio: MeioFaturado;
+  data: string;
+}
+
 export interface CardPedido extends Pedido {
   cliente_nome: string;
+  cliente_telefone: string | null;
   responsavel_nome: string | null;
   resumo: string;
   total_pago: number;
   saldo_devedor: number;
   situacao: SituacaoFinanceira;
+  faturamento: FaturamentoCard | null;
 }
 
 export type CategoriaConta =

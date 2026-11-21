@@ -40,6 +40,8 @@ Ordem e conteúdo:
 | `0006_realtime_storage_seed.sql` | Realtime do quadro, bucket `artes`, catálogo inicial de serviços |
 | `0007_hardening.sql` | Correções do advisor de segurança: `search_path` fixo, revogação de `EXECUTE` para `anon`, checagem de papel em `clientes_duplicados`/`saldo_devedor` |
 | `0008_ativacao_explicita.sql` | Perfil novo nasce inativo; ativar é decisão explícita do dono |
+| `0009` … `0016` | Ajustes seguintes (senha, exclusões, colunas, balcão, conclusão) — aplicar na ordem do nome do arquivo |
+| `0017_operacao_grafica.sql` | Recorrência de cliente, pagamento Faturado, nome avulso no balcão, edição de item em pedido e orçamento aprovado. O sistema abre sem este arquivo; essas funções é que pedem o SQL. Pode rodar de novo: não apaga dado |
 
 ### 2. Variáveis de ambiente
 

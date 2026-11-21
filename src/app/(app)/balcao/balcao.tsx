@@ -22,8 +22,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AlertCircle, Loader2, Plus, Trash2, UserRound } from "lucide-react";
-import { brl, parseValor } from "@/lib/format";
-import { FORMAS_PAGAMENTO, UNIDADES, type Servico } from "@/lib/types";
+import { brl, hojeSP, parseValor } from "@/lib/format";
+import { CamposFaturado } from "@/components/campos-faturado";
+import { FORMAS_RECEBIMENTO, UNIDADES, type MeioFaturado, type Servico } from "@/lib/types";
 
 type ItemCarrinho = {
   chave: string;
@@ -63,6 +64,10 @@ export function Balcao({
   const [fiado, setFiado] = useState(false);
   const [combinado, setCombinado] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
+  const [meioFatura, setMeioFatura] = useState<MeioFaturado>("boleto");
+  const [dataFatura, setDataFatura] = useState(hojeSP());
+  const [nomeAvulso, setNomeAvulso] = useState("");
+  const [telefoneAvulso, setTelefoneAvulso] = useState("");
   const [valorPago, setValorPago] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
@@ -108,18 +113,29 @@ export function Balcao({
   // Entrega na hora exige o total recebido — é a regra RF-29, que o
   // banco cobra de qualquer jeito. Aqui só adiantamos o preenchimento.
   // No fiado a conta é outra: o valor fica em aberto de propósito, então
-  // nada de completar sozinho.
-  const pagamentoSugerido =
-    valorPago || (entregaImediata && !fiado ? total.toFixed(2) : "");
+  // nada de completar sozinho. Faturado não é caixa, então não preenche
+  // o valor recebido.
+  const faturado = formaPagamento === "faturado";
+  const clienteGenerico = !cliente || cliente.nome === "Consumidor final";
+  const pagamentoSugerido = faturado
+    ? ""
+    : valorPago || (entregaImediata && !fiado ? total.toFixed(2) : "");
+  const valorFaturado = faturado ? valorPago || (total > 0 ? total.toFixed(2) : "") : "";
   // Marcar fiado e receber o valor cheio deixa de ser fiado: sem saldo,
   // nada a registrar como exceção.
-  const restante = Math.round((total - parseValor(valorPago)) * 100) / 100;
-  const entregaFiado = entregaImediata && fiado && restante > 0;
+  const restante = Math.round(
+    (total - (faturado ? 0 : parseValor(valorPago))) * 100,
+  ) / 100;
+  const entregaFiado = entregaImediata && fiado && (faturado || restante > 0);
   const faltaCombinado = entregaFiado && combinado.trim().length < 3;
 
   return (
     <form action={acao} className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <input type="hidden" name="cliente_id" value={cliente?.id ?? ""} />
+      <input type="hidden" name="nome_avulso" value={clienteGenerico ? nomeAvulso.trim() : ""} />
+      <input type="hidden" name="telefone_avulso" value={clienteGenerico ? telefoneAvulso.trim() : ""} />
+      <input type="hidden" name="agendado_meio" value={faturado ? meioFatura : ""} />
+      <input type="hidden" name="agendado_para" value={faturado ? dataFatura : ""} />
       <input type="hidden" name="itens" value={JSON.stringify(itens)} />
       <input
         type="hidden"
@@ -127,6 +143,7 @@ export function Balcao({
         value={entregaImediata ? "1" : "0"}
       />
       <input type="hidden" name="pagamento_valor" value={pagamentoSugerido} />
+      <input type="hidden" name="valor_faturado" value={valorFaturado} />
       <input type="hidden" name="pagamento_forma" value={formaPagamento} />
       <input
         type="hidden"
@@ -148,7 +165,13 @@ export function Balcao({
             <SeletorCliente
               clientes={lista}
               selecionado={cliente?.id}
-              aoSelecionar={setCliente}
+              aoSelecionar={(c) => {
+                setCliente(c);
+                if (c && c.nome !== "Consumidor final") {
+                  setNomeAvulso("");
+                  setTelefoneAvulso("");
+                }
+              }}
               acao={
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -183,6 +206,35 @@ export function Balcao({
                 </div>
               }
             />
+
+            <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="nome-avulso">Nome na venda, sem cadastrar</Label>
+                <Input
+                  id="nome-avulso"
+                  value={nomeAvulso}
+                  onChange={(e) => setNomeAvulso(e.target.value)}
+                  placeholder="Ex.: João da portaria"
+                  disabled={!clienteGenerico}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="telefone-avulso">Telefone desta venda</Label>
+                <Input
+                  id="telefone-avulso"
+                  value={telefoneAvulso}
+                  onChange={(e) => setTelefoneAvulso(e.target.value)}
+                  inputMode="tel"
+                  placeholder="(00) 00000-0000"
+                  disabled={!clienteGenerico}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Não cria ficha de cliente. O nome e o telefone aparecem no card
+                do quadro. Se escolher um cliente cadastrado, estes campos ficam
+                de lado.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -374,10 +426,14 @@ export function Balcao({
               <select
                 id="forma"
                 value={formaPagamento}
-                onChange={(e) => setFormaPagamento(e.target.value)}
+                onChange={(e) => {
+                  const valor = e.target.value;
+                  setFormaPagamento(valor);
+                  if (valor === "faturado") setEntregaImediata(false);
+                }}
                 className={seletor}
               >
-                {Object.entries(FORMAS_PAGAMENTO).map(([v, r]) => (
+                {Object.entries(FORMAS_RECEBIMENTO).map(([v, r]) => (
                   <option key={v} value={v}>
                     {r}
                   </option>
@@ -385,8 +441,18 @@ export function Balcao({
               </select>
             </div>
 
+            <CamposFaturado
+              forma={formaPagamento}
+              meio={meioFatura}
+              data={dataFatura}
+              aoMudarMeio={setMeioFatura}
+              aoMudarData={setDataFatura}
+            />
+
             <div className="grid gap-2">
-              <Label htmlFor="pago">Valor recebido (R$)</Label>
+              <Label htmlFor="pago">
+                {faturado ? "Valor faturado (R$)" : "Valor recebido (R$)"}
+              </Label>
               <Input
                 id="pago"
                 value={valorPago}
@@ -395,9 +461,11 @@ export function Balcao({
                 placeholder={total > 0 ? total.toFixed(2) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
-                {entregaFiado
-                  ? "Em branco, não entra pagamento nenhum. Preencha se o cliente adiantou uma parte."
-                  : "Em branco, entra o total. Deixe menor para registrar sinal — aí não dá para entregar na hora."}
+                {faturado
+                  ? "Em branco, fatura o total. O saldo continua em aberto até o boleto ou o PIX cair."
+                  : entregaFiado
+                    ? "Em branco, não entra pagamento nenhum. Preencha se o cliente adiantou uma parte."
+                    : "Em branco, entra o total. Deixe menor para registrar sinal — aí não dá para entregar na hora."}
               </p>
             </div>
 
@@ -422,14 +490,20 @@ export function Balcao({
             <Button
               type="submit"
               disabled={
-                enviando || itens.length === 0 || !cliente || faltaCombinado
+                enviando ||
+                itens.length === 0 ||
+                (!cliente && !nomeAvulso.trim()) ||
+                faltaCombinado ||
+                (faturado && !dataFatura)
               }
               className="w-full"
             >
               {enviando && <Loader2 className="animate-spin" />}
-              {entregaFiado
-                ? `Entregar fiado · ${brl(restante)}`
-                : `Finalizar venda · ${brl(total)}`}
+              {faturado
+                ? `Faturar venda · ${brl(total)}`
+                : entregaFiado
+                  ? `Entregar fiado · ${brl(restante)}`
+                  : `Finalizar venda · ${brl(total)}`}
             </Button>
 
             {faltaCombinado && (
